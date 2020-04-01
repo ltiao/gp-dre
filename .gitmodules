@@ -1,0 +1,4 @@
+[submodule "probability"]
+	path = probability
+	url = https://github.com/ltiao/probability.git
+	branch = fix-cholesky-jitter
