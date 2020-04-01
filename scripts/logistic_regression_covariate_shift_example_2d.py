@@ -7,7 +7,7 @@ import pandas as pd
 import h5py
 
 from sklearn.linear_model import LogisticRegression
-from etudes.utils import load_hdf5
+from gpdre.utils import load_hdf5
 from pathlib import Path
 
 # Sensible defaults

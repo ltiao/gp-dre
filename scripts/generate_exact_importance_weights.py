@@ -3,8 +3,7 @@ import h5py
 import sys
 import click
 
-from etudes.utils import load_hdf5
-from etudes.utils import DistributionPair
+from gpdre.utils import load_hdf5, DistributionPair
 
 
 @click.command()

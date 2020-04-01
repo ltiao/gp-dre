@@ -3,8 +3,8 @@ import h5py
 import sys
 import click
 
-from etudes.external.kliep import DensityRatioEstimator
-from etudes.utils import load_hdf5
+from gpdre.external.kliep import DensityRatioEstimator
+from gpdre.utils import load_hdf5
 
 # Sensible defaults
 SEED = None

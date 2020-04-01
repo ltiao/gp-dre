@@ -12,10 +12,10 @@ from tqdm import trange
 
 from tensorflow.keras.layers import InputLayer
 
-from etudes.gaussian_processes import VariationalGaussianProcessScalar, KernelWrapper
-from etudes.datasets import make_classification_dataset
-from etudes.initializers import KMeans
-from etudes.utils import load_hdf5, get_kl_weight, to_numpy
+from gpdre.gaussian_processes import VariationalGaussianProcessScalar, KernelWrapper
+from gpdre.datasets import make_classification_dataset
+from gpdre.initializers import KMeans
+from gpdre.utils import load_hdf5, get_kl_weight, to_numpy
 
 tfd = tfp.distributions
 kernels = tfp.math.psd_kernels
@@ -41,16 +41,146 @@ BETA2 = 0.99
 SEED = 8888
 
 
-def make_binary_classification_likelihood(f):
+class GaussianProcessClassifier:
 
-    return tfd.Independent(tfd.Bernoulli(logits=f),
-                           reinterpreted_batch_ndims=1)
+    def __init__(self, input_dim, num_inducing_points,
+                 inducing_index_points_initializer, use_ard=True,
+                 jitter=1e-6, dtype=tf.float64, seed=None):
 
+        # TODO: should support an optional kernel argument, and only
+        # instantiate a new kernel if this argument is not provided.
+        # TODO: Add options for initial values of each parameter.
+        # TODO: Add option for different bijectors, particular SoftPlus.
+        self.amplitude = tfp.util.TransformedVariable(
+            initial_value=1.0, bijector=tfp.bijectors.Exp(),
+            dtype=dtype, name="amplitude")
+        self.length_scale = tfp.util.TransformedVariable(
+            initial_value=1.0, bijector=tfp.bijectors.Exp(),
+            dtype=dtype, name="length_scale")
+        self.scale_diag = tfp.util.TransformedVariable(
+            initial_value=np.ones(input_dim), bijector=tfp.bijectors.Exp(),
+            dtype=dtype, name="scale_diag")
 
-def log_likelihood(y, f):
+        self.base_kernel = kernel_cls(amplitude=self.amplitude,
+                                      length_scale=self.length_scale)
 
-    likelihood = make_binary_classification_likelihood(f)
-    return likelihood.log_prob(y)
+        if input_dim > 1 and use_ard:
+            self.kernel = kernels.FeatureScaled(self.base_kernel,
+                                                scale_diag=self.scale_diag)
+        else:
+            self.kernel = self.base_kernel
+
+        self.observation_noise_variance = tfp.util.TransformedVariable(
+            initial_value=1e-3, bijector=tfp.bijectors.Exp(),
+            dtype=dtype, name="observation_noise_variance")
+
+        self.inducing_index_points = tf.Variable(
+            inducing_index_points_initializer(
+                shape=(num_inducing_points, input_dim), dtype=dtype),
+            name="inducing_index_points")
+
+        self.variational_inducing_observations_loc = tf.Variable(
+            np.zeros(num_inducing_points),
+            name="variational_inducing_observations_loc")
+
+        self.variational_inducing_observations_scale = tf.Variable(
+            np.eye(num_inducing_points),
+            name="variational_inducing_observations_scale"
+        )
+
+        self.jitter = jitter
+        self.seed = seed
+
+    def __call__(self, X, jitter=None):
+
+        if jitter is None:
+            jitter = self.jitter
+
+        return tfd.VariationalGaussianProcess(
+            kernel=self.kernel, index_points=X,
+            inducing_index_points=self.inducing_index_points,
+            variational_inducing_observations_loc=self.variational_loc,
+            variational_inducing_observations_scale=self.variational_scale,
+            observation_noise_variance=self.observation_noise_variance,
+            jitter=jitter
+        )
+
+    @staticmethod
+    def make_likelihood(f):
+
+        return tfd.Independent(tfd.Bernoulli(logits=f),
+                               reinterpreted_batch_ndims=1)
+
+    @staticmethod
+    def log_likelihood(y, f):
+
+        likelihood = GaussianProcessClassifier.make_likelihood(f)
+        return likelihood.log_prob(y)
+
+    def predictive(self, X, sample_shape=None, jitter=None):
+        """
+        Sample a batch of likelihood distributions
+            p(y|f^(s)), f^(s) ~ q(f) for s in 1...S
+        """
+        f = self(X, jitter).sample(sample_shape)
+        return self.make_likelihood(f)
+
+    def compile(self, optimizer=None):
+
+        if optimizer is None:
+            # TODO: Support parameters
+            optimizer = tf.keras.optimizers.Adam()
+
+        self.optimizer = optimizer
+
+    def fit(self, X_train, y_train, num_epochs, batch_size=64,
+            quadrature_size=20, buffer_size=256):
+
+        num_train = len(X_train)
+        kl_weight = get_kl_weight(num_train, batch_size)
+
+        @tf.function
+        def elbo(X_batch, y_batch):
+
+            ell = self(X_batch).surrogate_posterior_expected_log_likelihood(
+                observations=y_batch,
+                log_likelihood_fn=log_likelihood,
+                quadrature_size=quadrature_size)
+
+            kl = self(X_batch).surrogate_posterior_kl_divergence_prior()
+
+            return ell - kl_weight * kl
+
+        @tf.function
+        def train_step(X_batch, y_batch):
+
+            with tf.GradientTape() as tape:
+                nelbo = - elbo(X_batch, y_batch)
+                gradients = tape.gradient(nelbo, vgp.trainable_variables)
+                self.optimizer.apply_gradients(zip(gradients, vgp.trainable_variables))
+
+            return nelbo
+
+        dataset = tf.data.Dataset.from_tensor_slices((X_train, y_train)) \
+                                 .shuffle(seed=self.seed, buffer_size=buffer_size) \
+                                 .batch(batch_size, drop_remainder=True)
+
+        # history = defaultdict(list)
+
+        for epoch in range(num_epochs):
+
+            for step, (X_batch, y_batch) in enumerate(dataset):
+
+                train_step(X_batch, y_batch)
+
+    def score(self, X_test, y_test, num_samples=None, jitter=None):
+        likelihood = self.sample_likelihood(X_test, num_samples, jitter)
+        return likelihood.log_prob(y_test)
+
+    def predict(self, X_test, num_samples=None, jitter=None):
+        likelihood = self.sample_likelihood(X_test, num_samples, jitter)
+        # TODO: Add support for othe methods, such as `stddev()`.
+        return likelihood.mean()
 
 
 def make_dre(model):

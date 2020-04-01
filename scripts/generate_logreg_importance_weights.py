@@ -11,8 +11,8 @@ from tensorflow.keras.initializers import glorot_uniform
 from tensorflow.keras.losses import binary_crossentropy
 from tensorflow.keras.regularizers import l1_l2
 
-from etudes.datasets import make_classification_dataset
-from etudes.utils import load_hdf5
+from gpdre.datasets import make_classification_dataset
+from gpdre.utils import load_hdf5
 
 # Sensible defaults
 EPOCHS = 1000

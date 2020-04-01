@@ -4,7 +4,7 @@ import sys
 import click
 
 from densratio import densratio
-from etudes.utils import load_hdf5
+from gpdre.utils import load_hdf5
 
 # Sensible defaults
 ALPHA = 0.0

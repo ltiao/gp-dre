@@ -11,7 +11,7 @@ from tensorflow.keras.regularizers import l1_l2
 from tensorflow.keras.callbacks import CSVLogger
 from tensorflow.keras.initializers import glorot_uniform
 
-from etudes.utils import load_hdf5
+from gpdre.utils import load_hdf5
 from pathlib import Path
 
 # Sensible defaults
