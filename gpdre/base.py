@@ -48,7 +48,7 @@ class GaussianProcessClassifier:
             self.kernel = self.base_kernel
 
         self.observation_noise_variance = tfp.util.TransformedVariable(
-            initial_value=1e-3, bijector=tfp.bijectors.Exp(),
+            initial_value=1e-6, bijector=tfp.bijectors.Exp(),
             dtype=dtype, name="observation_noise_variance")
 
         self.inducing_index_points = tf.Variable(
@@ -68,7 +68,7 @@ class GaussianProcessClassifier:
         self.jitter = jitter
         self.seed = seed
 
-    def __call__(self, X, jitter=None):
+    def logit(self, X, jitter=None):
 
         if jitter is None:
             jitter = self.jitter
@@ -115,7 +115,7 @@ class GaussianProcessClassifier:
             # TODO: does this need to be in the GradientTape context manager?
             #   Doesn't seem to, but would bea prime suspect if anything
             #   behaves funky down the line...
-            qf_batch = self(X_batch)
+            qf_batch = self.logit(X_batch)
             variables = qf_batch.trainable_variables
 
             with tf.GradientTape() as tape:
@@ -152,10 +152,10 @@ class GaussianProcessClassifier:
         """
         Sample batch of predictive distributions.
         """
-        qf = self(X, jitter=jitter)
-        fs = qf.sample(sample_shape)
+        qf = self.logit(X, jitter=jitter)
+        f_samples = qf.sample(sample_shape)
 
-        return self.make_likelihood(fs)
+        return self.make_likelihood(f_samples)
 
 
 class GaussianProcessDensityRatioEstimator(GaussianProcessClassifier):
@@ -169,11 +169,11 @@ class GaussianProcessDensityRatioEstimator(GaussianProcessClassifier):
             X, y, num_epochs=num_epochs,  batch_size=batch_size,
             quadrature_size=quadrature_size, buffer_size=buffer_size)
 
-    def predictive(self, X, jitter=None, reinterpreted_batch_ndims=1):
+    def __call__(self, X, jitter=None, reinterpreted_batch_ndims=1):
         """
         Transformed distribution. Predictive is probably a misleading name.
         """
-        qf = self(X, jitter=jitter)
+        qf = self.logit(X, jitter=jitter)
         qr = tfd.LogNormal(loc=qf.mean(), scale=qf.stddev())
 
         return tfd.Independent(

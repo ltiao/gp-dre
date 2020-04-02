@@ -35,12 +35,16 @@ def load_hdf5(filename):
     return (X_train, y_train), (X_test, y_test)
 
 
-class DistributionPair:
+class DensityRatio:
 
-    def __init__(self, p, q):
+    def __init__(self, top, bot):
 
-        self.p = p
-        self.q = q
+        self.top = top
+        self.bot = bot
+
+    def __call__(self, x):
+
+        return tf.exp(self.logit(x))
 
     @classmethod
     def from_covariate_shift_example(cls):
@@ -57,17 +61,34 @@ class DistributionPair:
                 loc=[[0.0, -1.0], [4.0, -1.0]])
         )
 
-        return cls(p=test, q=train)
+        return cls(top=test, bot=train)
+
+    def logit(self, x):
+
+        return self.top.log_prob(x) - self.bot.log_prob(x)
+
+    def optimal_score(self, x):
+
+        return tf.sigmoid(self.logit(x))
 
     def make_dataset(self, num_samples, rate=0.5, dtype="float64", seed=None):
 
-        num_p = int(num_samples * rate)
-        num_q = num_samples - num_p
+        num_top = int(num_samples * rate)
+        num_bot = num_samples - num_top
 
-        X_p = self.p.sample(sample_shape=(num_p, 1), seed=seed).numpy()
-        X_q = self.q.sample(sample_shape=(num_q, 1), seed=seed).numpy()
+        X_top = self.top.sample(sample_shape=(num_top, 1), seed=seed).numpy()
+        X_bot = self.bot.sample(sample_shape=(num_bot, 1), seed=seed).numpy()
 
-        return X_p, X_q
+        return X_top, X_bot
+
+    def make_classification_dataset(self, num_samples, rate=0.5,
+                                    dtype="float64", seed=None):
+
+        X_p, X_q = self.make_dataset(num_samples, rate, dtype, seed)
+        X, y = _make_classification_dataset(X_p, X_q, dtype=dtype,
+                                            random_state=seed)
+
+        return X, y
 
     def make_covariate_shift_dataset(self, class_posterior_fn, num_test,
                                      num_train, threshold=0.5, seed=None):
@@ -84,27 +105,6 @@ class DistributionPair:
 
         return (X_train, y_train), (X_test, y_test)
 
-    def make_classification_dataset(self, num_samples, rate=0.5,
-                                    dtype="float64", seed=None):
-
-        X_p, X_q = self.make_dataset(num_samples, rate, dtype, seed)
-        X, y = _make_classification_dataset(X_p, X_q, dtype=dtype,
-                                            random_state=seed)
-
-        return X, y
-
-    def logit(self, x):
-
-        return self.p.log_prob(x) - self.q.log_prob(x)
-
-    def density_ratio(self, x):
-
-        return tf.exp(self.logit(x))
-
-    def optimal_score(self, x):
-
-        return tf.sigmoid(self.logit(x))
-
     def optimal_accuracy(self, x_test, y_test):
 
         # Required when some distributions are inherently `float32` such as
@@ -118,21 +118,6 @@ class DistributionPair:
     def kl_divergence(self):
 
         return tfd.kl_divergence(self.p, self.q)
-
-    def divergence_monte_carlo(self):
-        # TODO
-        pass
-
-    def make_p_log_prob_estimator(self, logit_estimator):
-        """
-        Recall log r(x) = log p(x) - log q(x). Then, we have,
-            log p(x) = log p(x) - log q(x) + log q(x) = log r(x) + log q(x)
-        """
-        def p_log_prob_estimator(x):
-
-            return self.q.log_prob(x) + logit_estimator(x)
-
-        return p_log_prob_estimator
 
 
 qs = {

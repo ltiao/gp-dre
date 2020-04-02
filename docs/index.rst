@@ -6,9 +6,8 @@ Welcome to Gaussian Process Density Ratio Estimation's documentation!
    :caption: Contents:
 
    readme
-   auto_examples/index
    installation
-   usage
+   auto_examples/index
    modules
    contributing
    authors

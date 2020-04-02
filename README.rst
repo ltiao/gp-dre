@@ -20,7 +20,7 @@ Gaussian Process Density Ratio Estimation
 
 
 
-Python Boilerplate contains all the boilerplate you need to create a Python package.
+A toolkit for Gaussian Process (GP)-based Density Ratio Estimation.
 
 
 * Free software: MIT license

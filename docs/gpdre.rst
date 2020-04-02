@@ -1,8 +1,23 @@
 gpdre package
 =============
 
+Subpackages
+-----------
+
+.. toctree::
+
+   gpdre.external
+
 Submodules
 ----------
+
+gpdre.base module
+-----------------
+
+.. automodule:: gpdre.base
+   :members:
+   :undoc-members:
+   :show-inheritance:
 
 gpdre.cli module
 ----------------
@@ -20,10 +35,10 @@ gpdre.datasets module
    :undoc-members:
    :show-inheritance:
 
-gpdre.gpdre module
-------------------
+gpdre.initializers module
+-------------------------
 
-.. automodule:: gpdre.gpdre
+.. automodule:: gpdre.initializers
    :members:
    :undoc-members:
    :show-inheritance:
