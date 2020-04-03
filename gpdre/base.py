@@ -22,7 +22,7 @@ class GaussianProcessClassifier:
     def __init__(self, input_dim, num_inducing_points,
                  inducing_index_points_initializer,
                  kernel_cls=kernels.ExponentiatedQuadratic,
-                 use_ard=True, jitter=1e-6, dtype=tf.float64, seed=None):
+                 use_ard=True, jitter=1e-6, seed=None, dtype=tf.float64):
 
         # TODO: should support an optional kernel argument, and only
         # instantiate a new kernel if this argument is not provided.
@@ -65,6 +65,8 @@ class GaussianProcessClassifier:
             name="variational_inducing_observations_scale"
         )
 
+        self.optimizer = None
+
         self.jitter = jitter
         self.seed = seed
 
@@ -83,16 +85,17 @@ class GaussianProcessClassifier:
             observation_noise_variance=self.observation_noise_variance,
             jitter=jitter)
 
-    def compile(self, optimizer=None):
+    def compile(self, optimizer, quadrature_size=20, num_samples=None):
 
-        # TODO: support specification by strings
-        if optimizer is None:
-            optimizer = tf.keras.optimizers.Adam()
+        if num_samples is not None:
+
+            raise NotImplementedError("Monte Carlo estimation of ELL not yet "
+                                      "supported!")
 
         self.optimizer = optimizer
+        self.quadrature_size = quadrature_size
 
-    def fit(self, X, y, num_epochs, batch_size=64, quadrature_size=20,
-            buffer_size=256):
+    def fit(self, X, y, epochs=1, batch_size=32, shuffle=True, buffer_size=256):
 
         # TODO: check if instance has already called `compile`.
         num_train = len(X)
@@ -101,16 +104,17 @@ class GaussianProcessClassifier:
         @tf.function
         def elbo(y_batch, qf_batch):
 
+            # TODO: Add support for sampling in addition to quadrature.
             ell = qf_batch.surrogate_posterior_expected_log_likelihood(
                 observations=y_batch,
                 log_likelihood_fn=GaussianProcessClassifier.log_likelihood,
-                quadrature_size=quadrature_size)
+                quadrature_size=self.quadrature_size)
             kl = qf_batch.surrogate_posterior_kl_divergence_prior()
 
             return ell - kl_weight * kl
 
         @tf.function
-        def train_step(X_batch, y_batch):
+        def train_on_batch(X_batch, y_batch):
 
             # TODO: does this need to be in the GradientTape context manager?
             #   Doesn't seem to, but would bea prime suspect if anything
@@ -119,20 +123,21 @@ class GaussianProcessClassifier:
             variables = qf_batch.trainable_variables
 
             with tf.GradientTape() as tape:
-                nelbo = - elbo(y_batch, qf_batch)
-                gradients = tape.gradient(nelbo, variables)
+                loss = - elbo(y_batch, qf_batch)
+                gradients = tape.gradient(loss, variables)
                 self.optimizer.apply_gradients(zip(gradients, variables))
 
-        dataset = tf.data.Dataset.from_tensor_slices((X, y)) \
-                                 .shuffle(seed=self.seed,
-                                          buffer_size=buffer_size) \
-                                 .batch(batch_size, drop_remainder=True)
+        dataset = tf.data.Dataset.from_tensor_slices((X, y))
 
-        for epoch in trange(num_epochs):
+        if shuffle:
+            dataset = dataset.shuffle(seed=self.seed, buffer_size=buffer_size)
 
+        dataset = dataset.batch(batch_size, drop_remainder=True)
+
+        for epoch in trange(epochs):
             for step, (X_batch, y_batch) in enumerate(dataset):
 
-                train_step(X_batch, y_batch)
+                train_on_batch(X_batch, y_batch)
 
     @staticmethod
     def make_likelihood(f, reinterpreted_batch_ndims=1):
@@ -160,14 +165,14 @@ class GaussianProcessClassifier:
 
 class GaussianProcessDensityRatioEstimator(GaussianProcessClassifier):
 
-    def fit(self, X_top, X_bot, num_epochs, batch_size=64, quadrature_size=20,
+    def fit(self, X_top, X_bot, epochs=1, batch_size=32, shuffle=True,
             buffer_size=256):
 
         X, y = make_classification_dataset(X_top, X_bot)
 
         super(GaussianProcessDensityRatioEstimator, self).fit(
-            X, y, num_epochs=num_epochs,  batch_size=batch_size,
-            quadrature_size=quadrature_size, buffer_size=buffer_size)
+            X, y, epochs=epochs, batch_size=batch_size, shuffle=shuffle,
+            buffer_size=buffer_size)
 
     def __call__(self, X, jitter=None, reinterpreted_batch_ndims=1):
         """
