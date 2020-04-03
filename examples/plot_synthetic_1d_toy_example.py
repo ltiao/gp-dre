@@ -98,7 +98,7 @@ plt.show()
 
 fig, ax = plt.subplots()
 
-ax.plot(X_grid, r(X_grid), c='k', label=r"$r(x) = \exp f(x)$")
+ax.plot(X_grid, r(X_grid), c='k', label=r"$r(x) = \exp{f(x)}$")
 
 ax.set_xlabel('$x$')
 ax.set_ylabel('$r(x)$')
@@ -182,7 +182,7 @@ ratio_estimator = gpdre(X_grid)
 
 fig, ax = plt.subplots()
 
-ax.plot(X_grid, r(X_grid), c='k', label=r"$r(x) = \exp f(x)$")
+ax.plot(X_grid, r(X_grid), c='k', label=r"$r(x) = \exp{f(x)}$")
 
 ax.plot(X_grid, ratio_estimator.distribution.quantile(0.5),
         c="tab:blue", label="median")
@@ -192,8 +192,8 @@ ax.fill_between(X_grid.squeeze(),
                 ratio_estimator.distribution.quantile(0.75),
                 alpha=0.1, label="quartiles")
 
-ax.set_xlabel('$x$')
-ax.set_ylabel('$y$')
+ax.set_xlabel(r"$x$")
+ax.set_ylabel(r"$r(x)$")
 
 ax.legend()
 
@@ -214,12 +214,12 @@ fig, ax = plt.subplots()
 contours = ax.pcolormesh(x, y, ratio_estimator_marginal.prob(Y_grid),
                          vmax=1.0, cmap="Blues")
 
-ax.plot(X_grid, r(X_grid), c='k', label=r"$r(x) = \exp f(x)$")
+ax.plot(X_grid, r(X_grid), c='k', label=r"$r(x) = \exp{f(x)}$")
 
 fig.colorbar(contours, extend="max", ax=ax)
 
-ax.set_xlabel('$x$')
-ax.set_ylabel('$y$')
+ax.set_xlabel(r"$x$")
+ax.set_ylabel(r"$r(x)$")
 
 ax.legend()
 
@@ -232,7 +232,7 @@ fig, ax = plt.subplots()
 contours = ax.pcolormesh(x, y, ratio_estimator_marginal.prob(Y_grid),
                          vmax=1.0, cmap="Blues")
 
-ax.plot(X_grid, r(X_grid), c='k', label=r"$r(x) = \exp f(x)$")
+ax.plot(X_grid, r(X_grid), c='k', label=r"$r(x) = \exp{f(x)}$")
 
 ax.plot(X_grid, ratio_estimator_marginal.mode(), c="tab:blue",
         label="transformed posterior mode")
@@ -241,8 +241,8 @@ ax.plot(X_grid, ratio_estimator_marginal.mean(), c="tab:blue", linestyle="--",
 
 fig.colorbar(contours, extend="max", ax=ax)
 
-ax.set_xlabel('$x$')
-ax.set_ylabel('$y$')
+ax.set_xlabel(r"$x$")
+ax.set_ylabel(r"$r(x)$")
 
 ax.legend()
 
