@@ -33,7 +33,7 @@ num_test = 40
 num_index_points = 256  # nbr of index points
 num_samples = 25
 
-num_epochs = 80
+num_epochs = 800
 batch_size = 64
 shuffle_buffer_size = 500
 quadrature_size = 20
