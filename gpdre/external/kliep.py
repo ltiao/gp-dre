@@ -2,7 +2,7 @@ import numpy as np
 import warnings
 
 
-class DensityRatioEstimator:
+class KLIEPDensityRatioEstimator:
     """
     Class to accomplish direct density estimation implementing the original KLIEP
     algorithm from Direct Importance Estimation with Model Selection

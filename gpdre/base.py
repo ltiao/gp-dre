@@ -6,11 +6,17 @@ import tensorflow_probability as tfp
 
 from tensorflow.keras.layers import Layer
 from tensorflow.keras.initializers import Identity, Constant
+from tensorflow.keras import optimizers
 
 from tqdm import trange
 
 from .datasets import make_classification_dataset
 from .utils import get_kl_weight
+
+# Move to another module soon
+from tensorflow.keras.models import Sequential
+from tensorflow.keras.layers import Dense
+from tensorflow.keras.losses import binary_crossentropy
 
 # shortcuts
 tfd = tfp.distributions
@@ -28,24 +34,29 @@ class GaussianProcessClassifier:
         # instantiate a new kernel if this argument is not provided.
         # TODO: Add options for initial values of each parameter.
         # TODO: Add option for different bijectors, particular SoftPlus.
+        length_scale_trainable = True
+        scale_diag_trainable = False
+
+        if input_dim > 1 and use_ard:
+
+            length_scale_trainable = False
+            scale_diag_trainable = True
+
         self.amplitude = tfp.util.TransformedVariable(
             initial_value=1.0, bijector=tfp.bijectors.Exp(),
             dtype=dtype, name="amplitude")
         self.length_scale = tfp.util.TransformedVariable(
             initial_value=1.0, bijector=tfp.bijectors.Exp(),
-            dtype=dtype, name="length_scale")
+            dtype=dtype, name="length_scale", trainable=length_scale_trainable)
         self.scale_diag = tfp.util.TransformedVariable(
             initial_value=np.ones(input_dim), bijector=tfp.bijectors.Exp(),
             dtype=dtype, name="scale_diag")
 
-        self.base_kernel = kernel_cls(amplitude=self.amplitude,
-                                      length_scale=self.length_scale)
+        base_kernel = kernel_cls(amplitude=self.amplitude,
+                                 length_scale=self.length_scale)
 
-        if input_dim > 1 and use_ard:
-            self.kernel = kernels.FeatureScaled(self.base_kernel,
-                                                scale_diag=self.scale_diag)
-        else:
-            self.kernel = self.base_kernel
+        self.kernel = kernels.FeatureScaled(base_kernel,
+                                            scale_diag=self.scale_diag)
 
         self.observation_noise_variance = tfp.util.TransformedVariable(
             initial_value=1e-6, bijector=tfp.bijectors.Exp(),
@@ -92,7 +103,7 @@ class GaussianProcessClassifier:
             raise NotImplementedError("Monte Carlo estimation of ELL not yet "
                                       "supported!")
 
-        self.optimizer = optimizer
+        self.optimizer = optimizers.get(optimizer)
         self.quadrature_size = quadrature_size
 
     def fit(self, X, y, epochs=1, batch_size=32, shuffle=True, buffer_size=256):
@@ -183,6 +194,63 @@ class GaussianProcessDensityRatioEstimator(GaussianProcessClassifier):
 
         return tfd.Independent(
             qr, reinterpreted_batch_ndims=reinterpreted_batch_ndims)
+
+
+def binary_crossentropy_from_logits(y_true, y_pred):
+    return binary_crossentropy(y_true, y_pred, from_logits=True)
+
+
+class DenseSequential(Sequential):
+
+    def __init__(self, output_dim, num_layers, num_units, layer_kws={},
+                 final_layer_kws={}):
+
+        super(DenseSequential, self).__init__()
+
+        for l in range(num_layers):
+            self.add(Dense(num_units, **layer_kws))
+
+        self.add(Dense(output_dim, **final_layer_kws))
+
+
+class MLPDensityRatioEstimator:
+    """
+    Light wrapper around Keras model. In the future, will look into
+    subclassing the Keras model or otherwise inheriting the methods in a
+    more automated fashion.
+    """
+    def __init__(self, num_layers=2, num_units=32, activation="tanh",
+                 seed=None, *args, **kwargs):
+
+        self.model = DenseSequential(1, num_layers, num_units,
+                                     layer_kws=dict(activation=activation))
+
+    def __call__(self, X):
+
+        return tf.exp(self.logit(X))
+
+    def class_prob(self, X):
+
+        return tf.sigmoid(self.logit(X))
+
+    def logit(self, X):
+
+        return self.model(X)
+
+    def compile(self, optimizer, *args, **kwargs):
+
+        self.model.compile(optimizer=optimizer,
+                           loss=binary_crossentropy_from_logits, *args, **kwargs)
+
+    def fit(self, X_top, X_bot, *args, **kwargs):
+
+        X, y = make_classification_dataset(X_top, X_bot)
+        return self.model.fit(X, y, *args, **kwargs)
+
+    def evaluate(self, X_top, X_bot, *args, **kwargs):
+
+        X, y = make_classification_dataset(X_top, X_bot)
+        return self.model.evaluate(X, y, *args, **kwargs)
 
 
 # Legacy code below this point

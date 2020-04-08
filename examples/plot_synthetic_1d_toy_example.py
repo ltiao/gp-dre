@@ -33,6 +33,7 @@ num_test = 40
 num_index_points = 256  # nbr of index points
 num_samples = 25
 
+optimizer = "adam"
 num_epochs = 800
 batch_size = 64
 shuffle_buffer_size = 500
@@ -137,8 +138,7 @@ gpdre = GaussianProcessDensityRatioEstimator(
     num_inducing_points=num_inducing_points,
     inducing_index_points_initializer=KMeans(X_train, seed=seed),
     kernel_cls=kernel_cls, jitter=jitter, seed=seed)
-gpdre.compile(optimizer=tf.keras.optimizers.Adam(),
-              quadrature_size=quadrature_size)
+gpdre.compile(optimizer=optimizer, quadrature_size=quadrature_size)
 gpdre.fit(X_p, X_q, epochs=num_epochs, batch_size=batch_size,
           buffer_size=shuffle_buffer_size)
 
