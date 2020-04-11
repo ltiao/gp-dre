@@ -5,7 +5,6 @@ Synthetic 1D Toy Problem
 """
 # sphinx_gallery_thumbnail_number = 8
 
-import tensorflow as tf
 import numpy as np
 
 import tensorflow_probability as tfp

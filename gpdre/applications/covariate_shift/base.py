@@ -1,9 +1,11 @@
-# import tensorflow_probability as tfp
+import tensorflow as tf
 
 from abc import ABC, abstractmethod
 from tensorflow.keras.regularizers import l1_l2
 
 from ...base import MLPDensityRatioEstimator
+from ...math import logit
+
 # from .initializers import KMeans
 
 # kernels = tfp.math.psd_kernels
@@ -14,6 +16,27 @@ class BaseCovariateShiftAdapter(ABC):
     @abstractmethod
     def importance_weights(self, X_train, X_test):
         pass
+
+
+class ExactCovariateShiftAdapter(BaseCovariateShiftAdapter):
+
+    def __init__(self, exact_density_ratio):
+
+        self.exact_density_ratio = exact_density_ratio
+
+    @classmethod
+    def from_logit(cls, true_logit):
+
+        return cls(exact_density_ratio=tf.exp(true_logit))
+
+    @classmethod
+    def from_prob(cls, true_prob):
+
+        return cls.from_logit(true_logit=logit(true_prob))
+
+    def importance_weights(self, X_train, X_test):
+
+        return self.exact_density_ratio(X_train).numpy()
 
 
 # class GaussianProcessCovariateShiftAdapter(BaseCovariateShiftAdapter):
@@ -65,17 +88,8 @@ class MLPCovariateShiftAdapter(BaseCovariateShiftAdapter):
         return self.estimator(X_train).numpy().squeeze()
 
     def accuracy(self, X_train, X_test):
-
+        """
+        Accuracy in disambiguating between test and training samples.
+        """
         loss, accuracy = self.estimator.evaluate(X_test, X_train)
         return accuracy
-
-
-class TrueCovariateShiftAdapter(BaseCovariateShiftAdapter):
-
-    def __init__(self, true_density_ratio):
-
-        self.true_density_ratio = true_density_ratio
-
-    def importance_weights(self, X_train, X_test):
-
-        return self.true_density_ratio(X_train).numpy()

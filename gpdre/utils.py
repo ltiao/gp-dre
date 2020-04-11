@@ -37,14 +37,32 @@ def load_hdf5(filename):
 
 class DensityRatio:
 
+    def __init__(self, logit_fn):
+
+        self.logit_fn = logit_fn
+
+    def __call__(self, x):
+
+        return tf.exp(self.logit(x))
+
+    def logit(self, x):
+        return self.logit_fn(x)
+
+    def prob(self, x):
+
+        return tf.sigmoid(self.logit(x))
+
+
+class DensityRatioFoo(DensityRatio):
+
     def __init__(self, top, bot):
 
         self.top = top
         self.bot = bot
 
-    def __call__(self, x):
+    def logit(self, x):
 
-        return tf.exp(self.logit(x))
+        return self.top.log_prob(x) - self.bot.log_prob(x)
 
     @classmethod
     def from_covariate_shift_example(cls):
@@ -62,14 +80,6 @@ class DensityRatio:
         )
 
         return cls(top=test, bot=train)
-
-    def logit(self, x):
-
-        return self.top.log_prob(x) - self.bot.log_prob(x)
-
-    def optimal_score(self, x):
-
-        return tf.sigmoid(self.logit(x))
 
     def make_dataset(self, num_samples, rate=0.5, dtype="float64", seed=None):
 
@@ -110,7 +120,7 @@ class DensityRatio:
         # Required when some distributions are inherently `float32` such as
         # the `MixtureSameFamily`.
         # TODO: Add flexibility for whether to cast to `float64`.
-        y_pred = tf.cast(tf.squeeze(self.optimal_score(x_test)),
+        y_pred = tf.cast(tf.squeeze(self.prob(x_test)),
                          dtype=tf.float64)
 
         return binary_accuracy(y_test, y_pred)

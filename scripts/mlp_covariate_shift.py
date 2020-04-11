@@ -10,7 +10,7 @@ from pathlib import Path
 from gpdre.applications.covariate_shift import (
   get_dataset, MLPCovariateShiftAdapter,
   Classification2DCovariateShiftBenchmark,
-  TrueCovariateShiftAdapter)
+  ExactCovariateShiftAdapter)
 from gpdre.utils import DensityRatio
 from gpdre.metrics import normalized_mean_squared_error
 
@@ -60,8 +60,8 @@ class MLPExperiment:
                                                 epochs_auxiliary, batch_size,
                                                 seed=seed)
 
-        self.adapter_true = TrueCovariateShiftAdapter(
-            true_density_ratio=DensityRatio.from_covariate_shift_example())
+        self.adapter_true = ExactCovariateShiftAdapter(
+            exact_density_ratio=DensityRatio.from_covariate_shift_example())
 
         self.parameters = dict(num_layers=num_layers, num_units=num_units,
                                activation=activation, l1_factor=l1_factor,
@@ -136,7 +136,7 @@ def main(name, summary_dir, num_train, num_test, threshold, num_layers,
                                                        threshold=threshold,
                                                        seed=dataset_seed)
 
-    results = mlp_experiment.get_results(X_train, y_train, X_test, y_test)
+    results = mlp_experiment.get_result(X_train, y_train, X_test, y_test)
 
     click.secho("[Seed {seed:04d}] test accuracy: {test_accuracy:.3f}"
                 .format(**results), fg="green")
