@@ -53,6 +53,7 @@ class DensityRatio:
         return tf.sigmoid(self.logit(x))
 
 
+# TODO: make better name
 class DensityRatioFoo(DensityRatio):
 
     def __init__(self, top, bot):
