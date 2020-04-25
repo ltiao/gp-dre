@@ -12,6 +12,7 @@ def get_column_names(filename, base_path):
     return list(data.index)
 
 
+# TODO: name these functions
 def foo(filename, base_path, target_column, sep=',', column_names=None):
 
     data = pd.read_csv(base_path.joinpath(filename),
@@ -84,12 +85,12 @@ def load_cpu_act(data_home="../datasets/"):
     base_path = Path(data_home).joinpath("liacc", "ComputerActivity")
     column_names = get_column_names("cpu_act.domain", base_path)
 
-    X_train, y_train = foo(filename="cpu_act.data",
-                           base_path=base_path,
-                           target_column="usr",
-                           column_names=column_names)
+    X, y = foo(filename="cpu_act.data",
+               base_path=base_path,
+               target_column="usr",
+               column_names=column_names)
 
-    return X_train, y_train
+    return X, y
 
 
 def load_cpu_small(data_home="../datasets/"):
@@ -97,12 +98,12 @@ def load_cpu_small(data_home="../datasets/"):
     base_path = Path(data_home).joinpath("liacc", "ComputerActivity")
     column_names = get_column_names("cpu_small.domain", base_path)
 
-    X_train, y_train = foo(filename="cpu_small.data",
-                           base_path=base_path,
-                           target_column="usr",
-                           column_names=column_names)
+    X, y = foo(filename="cpu_small.data",
+               base_path=base_path,
+               target_column="usr",
+               column_names=column_names)
 
-    return X_train, y_train
+    return X, y
 
 
 def load_kin8nm(data_home="../datasets/"):
@@ -110,12 +111,12 @@ def load_kin8nm(data_home="../datasets/"):
     base_path = Path(data_home).joinpath("liacc", "Kinematics")
     column_names = get_column_names("kin8nm.domain", base_path)
 
-    X_train, y_train = foo(filename="kin8nm.data",
-                           base_path=base_path,
-                           target_column='y',
-                           column_names=column_names)
+    X, y = foo(filename="kin8nm.data",
+               base_path=base_path,
+               target_column='y',
+               column_names=column_names)
 
-    return X_train, y_train
+    return X, y
 
 
 def load_ailerons(data_home="../datasets/"):
@@ -150,3 +151,20 @@ def load_elevators(data_home="../datasets/"):
                          column_names=column_names)
 
     return (X_train, y_train), (X_test, y_test)
+
+
+DATASET_LOADER = {
+    "ailerons": load_ailerons,
+    "bank32nh": load_bank32nh,
+    "bank8fm": load_bank8fm,
+    "cpu_act": load_cpu_act,
+    "cpu_small": load_cpu_small,
+    "elevators": load_elevators,
+    "kin8nm": load_kin8nm,
+    "puma8nh": load_puma8nh
+}
+
+
+def load_dataset(name, *args, **kwargs):
+
+    return DATASET_LOADER.get(name)(*args, **kwargs)

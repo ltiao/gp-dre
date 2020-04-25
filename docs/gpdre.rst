@@ -6,6 +6,8 @@ Subpackages
 
 .. toctree::
 
+   gpdre.applications
+   gpdre.datasets
    gpdre.external
 
 Submodules
@@ -27,18 +29,26 @@ gpdre.cli module
    :undoc-members:
    :show-inheritance:
 
-gpdre.datasets module
----------------------
-
-.. automodule:: gpdre.datasets
-   :members:
-   :undoc-members:
-   :show-inheritance:
-
 gpdre.initializers module
 -------------------------
 
 .. automodule:: gpdre.initializers
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+gpdre.math module
+-----------------
+
+.. automodule:: gpdre.math
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+gpdre.metrics module
+--------------------
+
+.. automodule:: gpdre.metrics
    :members:
    :undoc-members:
    :show-inheritance:

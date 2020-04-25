@@ -1,5 +1,5 @@
 Welcome to Gaussian Process Density Ratio Estimation's documentation!
-======================================
+=====================================================================
 
 .. toctree::
    :maxdepth: 2

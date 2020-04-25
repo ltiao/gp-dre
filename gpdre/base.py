@@ -370,18 +370,3 @@ class VariationalGaussianProcessScalar(tfp.layers.DistributionLambda):
             mean_fn=mean_fn,
             observation_noise_variance=observation_noise_variance,
             jitter=jitter)
-
-
-def gp_sample_custom(gp, n_samples, seed=None):
-
-    gp_marginal = gp.get_marginal_distribution()
-
-    batch_shape = tf.ones(gp_marginal.batch_shape.rank, dtype=tf.int32)
-    event_shape = gp_marginal.event_shape
-
-    sample_shape = tf.concat([[n_samples], batch_shape, event_shape], axis=0)
-
-    base_samples = gp_marginal.distribution.sample(sample_shape, seed=seed)
-    gp_samples = gp_marginal.bijector.forward(base_samples)
-
-    return gp_samples
