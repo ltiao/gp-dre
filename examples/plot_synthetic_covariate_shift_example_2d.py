@@ -112,7 +112,7 @@ fig, ax = plt.subplots()
 
 ax.set_title(r"$r(\mathbf{x}) = \exp(f(\mathbf{x}))$")
 
-contours = ax.contour(X1, X2, r(X_grid).numpy(), cmap="magma")
+contours = ax.contour(X1, X2, r.ratio(X_grid).numpy(), cmap="magma")
 
 fig.colorbar(contours, ax=ax)
 ax.clabel(contours, fmt="%.2f")
@@ -197,7 +197,7 @@ plt.show()
 
 model = SVC(C=1.0, kernel="rbf", gamma="scale", max_iter=-1, probability=True,
             random_state=seed)
-model.fit(X_train, y_train, sample_weight=r(X_train).numpy())
+model.fit(X_train, y_train, sample_weight=r.ratio(X_train).numpy())
 model.score(X_val, y_val)
 
 # %%
@@ -216,9 +216,9 @@ contours = ax.contour(X1, X2, p_grid[..., -1], cmap="RdYlBu")
 fig.colorbar(contours, ax=ax)
 ax.clabel(contours, fmt="%.2f")
 
-ax.scatter(*X_train.T, c=y_train, s=r(X_train).numpy(),
+ax.scatter(*X_train.T, c=y_train, s=r.ratio(X_train).numpy(),
            cmap="RdYlBu", alpha=0.8, label="train")
-ax.scatter(*X_val.T, marker='x', c=y_val, s=r(X_train).numpy(),
+ax.scatter(*X_val.T, marker='x', c=y_val, s=r.ratio(X_train).numpy(),
            cmap="RdYlBu", alpha=0.2, label="test")
 
 ax.legend()
@@ -282,7 +282,7 @@ model.compile(optimizer=optimizer, loss="binary_crossentropy",
 hist_exact = model.fit(X_train, y_train, epochs=epochs,
                        batch_size=batch_size,
                        validation_data=(X_val, y_val),
-                       sample_weight=r(X_train).numpy())
+                       sample_weight=r.ratio(X_train).numpy())
 # %%
 
 val_loss, val_accuracy = model.evaluate(X_val, y_val)
@@ -303,9 +303,9 @@ contours = ax.contour(X1, X2, p_grid.squeeze(), cmap="RdYlBu")
 fig.colorbar(contours, ax=ax)
 ax.clabel(contours, fmt="%.2f")
 
-ax.scatter(*X_train.T, c=y_train, s=r(X_train).numpy(),
+ax.scatter(*X_train.T, c=y_train, s=r.ratio(X_train).numpy(),
            cmap="RdYlBu", alpha=0.8, label="train")
-ax.scatter(*X_val.T, marker='x', c=y_val, s=r(X_train).numpy(),
+ax.scatter(*X_val.T, marker='x', c=y_val, s=r.ratio(X_train).numpy(),
            cmap="RdYlBu", alpha=0.2, label="test")
 
 ax.legend()

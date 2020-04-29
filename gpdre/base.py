@@ -4,6 +4,7 @@ import numpy as np
 import tensorflow as tf
 import tensorflow_probability as tfp
 
+from abc import ABC, abstractmethod
 from tensorflow.keras.layers import Layer
 from tensorflow.keras.initializers import Identity, Constant
 from tensorflow.keras.metrics import binary_accuracy
@@ -22,18 +23,15 @@ tfd = tfp.distributions
 kernels = tfp.math.psd_kernels
 
 
-class DensityRatio:
-
-    def __init__(self, logit_fn):
-
-        self.logit_fn = logit_fn
+class DensityRatioBase(ABC):
 
     def __call__(self, x):
 
         return self.ratio(x)
 
+    @abstractmethod
     def logit(self, x):
-        return self.logit_fn(x)
+        pass
 
     def ratio(self, x):
 
@@ -53,13 +51,22 @@ class DensityRatio:
         return (X[mask_train], y[mask_train]), (X[mask_test], y[mask_test])
 
 
-class DensityRatioMarginals(DensityRatio):
+class DensityRatio(DensityRatioBase):
 
-    def __init__(self, top, bot, seed=None):
+    def __init__(self, logit_fn):
+
+        self.logit_fn = logit_fn
+
+    def logit(self, x):
+        return self.logit_fn(x)
+
+
+class DensityRatioMarginals(DensityRatioBase):
+
+    def __init__(self, top, bot):
 
         self.top = top
         self.bot = bot
-        self.rng = check_random_state(seed)
 
     def logit(self, x):
 
