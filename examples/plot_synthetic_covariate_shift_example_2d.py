@@ -12,12 +12,11 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
 
-from gpdre.base import DenseSequential
-from gpdre.utils import DensityRatio
+from gpdre import DensityRatioMarginals
+from gpdre.models import DenseSequential
 
 from sklearn.svm import SVC
 from sklearn.datasets import make_moons
-from sklearn.utils import check_random_state
 
 from tensorflow.keras.regularizers import l2
 
@@ -47,29 +46,6 @@ X_grid = np.dstack((X1, X2))
 
 # %%
 
-
-class DensityRatioMarginals(DensityRatio):
-
-    def __init__(self, top, bot, seed=None):
-
-        self.top = top
-        self.bot = bot
-        self.rng = check_random_state(seed)
-
-    def logit(self, x):
-
-        return self.top.log_prob(x) - self.bot.log_prob(x)
-
-    def train_test_split(self, X, y):
-
-        mask_test = self.rng.binomial(n=1, p=self.prob(X).numpy()).astype(bool)
-        mask_train = ~mask_test
-
-        return (X[mask_train], y[mask_train]), (X[mask_test], y[mask_test])
-
-# %%
-
-
 X, y = make_moons(num_samples, noise=0.05, random_state=dataset_seed)
 
 # %%
@@ -91,7 +67,7 @@ train = tfd.MixtureSameFamily(
     components_distribution=tfd.MultivariateNormalDiag(
         loc=[[-1., -0.5], [2., 1.0]], scale_diag=[0.5, 1.5])
 )
-r = DensityRatioMarginals(top=test, bot=train, seed=seed)
+r = DensityRatioMarginals(top=test, bot=train)
 
 # %%
 
@@ -166,7 +142,7 @@ plt.show()
 
 # %%
 
-(X_train, y_train), (X_val, y_val) = r.train_test_split(X, y)
+(X_train, y_train), (X_val, y_val) = r.train_test_split(X, y, seed=seed)
 
 # %%
 

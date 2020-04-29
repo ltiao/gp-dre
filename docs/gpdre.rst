@@ -37,6 +37,14 @@ gpdre.initializers module
    :undoc-members:
    :show-inheritance:
 
+gpdre.losses module
+-------------------
+
+.. automodule:: gpdre.losses
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
 gpdre.math module
 -----------------
 
@@ -49,6 +57,14 @@ gpdre.metrics module
 --------------------
 
 .. automodule:: gpdre.metrics
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+gpdre.models module
+-------------------
+
+.. automodule:: gpdre.models
    :members:
    :undoc-members:
    :show-inheritance:
