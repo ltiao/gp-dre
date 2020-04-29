@@ -6,21 +6,132 @@ import tensorflow_probability as tfp
 
 from tensorflow.keras.layers import Layer
 from tensorflow.keras.initializers import Identity, Constant
+from tensorflow.keras.metrics import binary_accuracy
 from tensorflow.keras import optimizers
+from sklearn.utils import check_random_state
 
-from tqdm import trange
-
+from .models import DenseSequential
+from .losses import binary_crossentropy_from_logits
 from .datasets import make_classification_dataset
 from .utils import get_kl_weight
 
-# Move to another module soon
-from tensorflow.keras.models import Sequential
-from tensorflow.keras.layers import Dense
-from tensorflow.keras.losses import binary_crossentropy
+from tqdm import trange
 
 # shortcuts
 tfd = tfp.distributions
 kernels = tfp.math.psd_kernels
+
+
+class DensityRatio:
+
+    def __init__(self, logit_fn):
+
+        self.logit_fn = logit_fn
+
+    def __call__(self, x):
+
+        return self.ratio(x)
+
+    def logit(self, x):
+        return self.logit_fn(x)
+
+    def ratio(self, x):
+
+        return tf.exp(self.logit(x))
+
+    def prob(self, x):
+
+        return tf.sigmoid(self.logit(x))
+
+    def train_test_split(self, X, y, seed=None):
+
+        rng = check_random_state(seed)
+
+        mask_test = rng.binomial(n=1, p=self.prob(X).numpy()).astype(bool)
+        mask_train = ~mask_test
+
+        return (X[mask_train], y[mask_train]), (X[mask_test], y[mask_test])
+
+
+class DensityRatioMarginals(DensityRatio):
+
+    def __init__(self, top, bot, seed=None):
+
+        self.top = top
+        self.bot = bot
+        self.rng = check_random_state(seed)
+
+    def logit(self, x):
+
+        return self.top.log_prob(x) - self.bot.log_prob(x)
+
+    def make_dataset(self, num_samples, rate=0.5, dtype="float64", seed=None):
+
+        num_top = int(num_samples * rate)
+        num_bot = num_samples - num_top
+
+        X_top = self.top.sample(sample_shape=(num_top, 1), seed=seed).numpy()
+        X_bot = self.bot.sample(sample_shape=(num_bot, 1), seed=seed).numpy()
+
+        return X_top, X_bot
+
+    def make_classification_dataset(self, num_samples, rate=0.5,
+                                    dtype="float64", seed=None):
+
+        X_p, X_q = self.make_dataset(num_samples, rate, dtype, seed)
+        X, y = make_classification_dataset(X_p, X_q, dtype=dtype,
+                                           random_state=seed)
+
+        return X, y
+
+    def kl_divergence(self):
+
+        return tfd.kl_divergence(self.top, self.bot)
+
+    # TODO(LT): deprecate
+    def optimal_accuracy(self, x_test, y_test):
+
+        # Required when some distributions are inherently `float32` such as
+        # the `MixtureSameFamily`.
+        # TODO: Add flexibility for whether to cast to `float64`.
+        y_pred = tf.cast(tf.squeeze(self.prob(x_test)),
+                         dtype=tf.float64)
+
+        return binary_accuracy(y_test, y_pred)
+
+    # TODO(LT): deprecate
+    @classmethod
+    def from_covariate_shift_example(cls):
+
+        train = tfd.MixtureSameFamily(
+            mixture_distribution=tfd.Categorical(probs=[0.5, 0.5]),
+            components_distribution=tfd.MultivariateNormalDiag(
+                loc=[[-2.0, 3.0], [2.0, 3.0]], scale_diag=[1.0, 2.0])
+        )
+
+        test = tfd.MixtureSameFamily(
+            mixture_distribution=tfd.Categorical(probs=[0.5, 0.5]),
+            components_distribution=tfd.MultivariateNormalDiag(
+                loc=[[0.0, -1.0], [4.0, -1.0]])
+        )
+
+        return cls(top=test, bot=train)
+
+    # TODO(LT): deprecate
+    def make_covariate_shift_dataset(self, class_posterior_fn, num_test,
+                                     num_train, threshold=0.5, seed=None):
+
+        num_samples = num_test + num_train
+        rate = num_test / num_samples
+
+        X_test, X_train = self.make_dataset(num_samples, rate=rate, seed=seed)
+        # TODO: Temporary fix. Need to address issue in `DistributionPair`.
+        X_train = X_train.squeeze()
+        X_test = X_test.squeeze()
+        y_train = (class_posterior_fn(*X_train.T) > threshold).numpy()
+        y_test = (class_posterior_fn(*X_test.T) > threshold).numpy()
+
+        return (X_train, y_train), (X_test, y_test)
 
 
 class GaussianProcessClassifier:
@@ -194,23 +305,6 @@ class GaussianProcessDensityRatioEstimator(GaussianProcessClassifier):
 
         return tfd.Independent(
             qr, reinterpreted_batch_ndims=reinterpreted_batch_ndims)
-
-
-def binary_crossentropy_from_logits(y_true, y_pred):
-    return binary_crossentropy(y_true, y_pred, from_logits=True)
-
-
-class DenseSequential(Sequential):
-
-    def __init__(self, output_dim, num_layers, num_units, layer_kws={},
-                 final_layer_kws={}):
-
-        super(DenseSequential, self).__init__()
-
-        for l in range(num_layers):
-            self.add(Dense(num_units, **layer_kws))
-
-        self.add(Dense(output_dim, **final_layer_kws))
 
 
 class MLPDensityRatioEstimator:
