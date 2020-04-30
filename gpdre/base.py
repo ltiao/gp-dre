@@ -38,13 +38,17 @@ class DensityRatioBase(ABC):
         return tf.exp(self.logit(x))
 
     def prob(self, x):
-
+        """
+        Probability of sample being from P_{top}(x) vs. P_{bot}(x).
+        """
         return tf.sigmoid(self.logit(x))
 
     def train_test_split(self, X, y, seed=None):
 
         rng = check_random_state(seed)
 
+        # TODO: clean up API to support both pure NumPy and TensorFlow 2.0
+        # eager computations.
         mask_test = rng.binomial(n=1, p=self.prob(X).numpy()).astype(bool)
         mask_train = ~mask_test
 
@@ -139,6 +143,39 @@ class DensityRatioMarginals(DensityRatioBase):
         y_test = (class_posterior_fn(*X_test.T) > threshold).numpy()
 
         return (X_train, y_train), (X_test, y_test)
+
+
+class MLPDensityRatioEstimator(DensityRatioBase):
+    """
+    Light wrapper around Keras model. In the future, will look into
+    subclassing the Keras model or otherwise inheriting the methods in a
+    more automated fashion.
+    """
+    def __init__(self, num_layers=2, num_units=32, activation="tanh",
+                 seed=None, *args, **kwargs):
+
+        self.model = DenseSequential(1, num_layers, num_units,
+                                     layer_kws=dict(activation=activation))
+
+    def logit(self, X):
+
+        return self.model(X)
+
+    def compile(self, optimizer, *args, **kwargs):
+
+        self.model.compile(optimizer=optimizer,
+                           loss=binary_crossentropy_from_logits,
+                           *args, **kwargs)
+
+    def fit(self, X_top, X_bot, *args, **kwargs):
+
+        X, y = make_classification_dataset(X_top, X_bot)
+        return self.model.fit(X, y, *args, **kwargs)
+
+    def evaluate(self, X_top, X_bot, *args, **kwargs):
+
+        X, y = make_classification_dataset(X_top, X_bot)
+        return self.model.evaluate(X, y, *args, **kwargs)
 
 
 class GaussianProcessClassifier:
@@ -312,46 +349,6 @@ class GaussianProcessDensityRatioEstimator(GaussianProcessClassifier):
 
         return tfd.Independent(
             qr, reinterpreted_batch_ndims=reinterpreted_batch_ndims)
-
-
-class MLPDensityRatioEstimator:
-    """
-    Light wrapper around Keras model. In the future, will look into
-    subclassing the Keras model or otherwise inheriting the methods in a
-    more automated fashion.
-    """
-    def __init__(self, num_layers=2, num_units=32, activation="tanh",
-                 seed=None, *args, **kwargs):
-
-        self.model = DenseSequential(1, num_layers, num_units,
-                                     layer_kws=dict(activation=activation))
-
-    def __call__(self, X):
-
-        return tf.exp(self.logit(X))
-
-    def class_prob(self, X):
-
-        return tf.sigmoid(self.logit(X))
-
-    def logit(self, X):
-
-        return self.model(X)
-
-    def compile(self, optimizer, *args, **kwargs):
-
-        self.model.compile(optimizer=optimizer,
-                           loss=binary_crossentropy_from_logits, *args, **kwargs)
-
-    def fit(self, X_top, X_bot, *args, **kwargs):
-
-        X, y = make_classification_dataset(X_top, X_bot)
-        return self.model.fit(X, y, *args, **kwargs)
-
-    def evaluate(self, X_top, X_bot, *args, **kwargs):
-
-        X, y = make_classification_dataset(X_top, X_bot)
-        return self.model.evaluate(X, y, *args, **kwargs)
 
 
 # Legacy code below this point

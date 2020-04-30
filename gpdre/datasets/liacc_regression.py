@@ -90,7 +90,7 @@ def load_cpu_act(data_home="../datasets/"):
                target_column="usr",
                column_names=column_names)
 
-    return X, y
+    return (X, y), None
 
 
 def load_cpu_small(data_home="../datasets/"):
@@ -103,7 +103,7 @@ def load_cpu_small(data_home="../datasets/"):
                target_column="usr",
                column_names=column_names)
 
-    return X, y
+    return (X, y), None
 
 
 def load_kin8nm(data_home="../datasets/"):
@@ -116,7 +116,7 @@ def load_kin8nm(data_home="../datasets/"):
                target_column='y',
                column_names=column_names)
 
-    return X, y
+    return (X, y), None
 
 
 def load_ailerons(data_home="../datasets/"):

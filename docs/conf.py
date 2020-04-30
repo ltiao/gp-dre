@@ -181,7 +181,7 @@ def reset_mpl(gallery_conf, fname):
     rc = {
         "figure.figsize": golden_size(width),
         "font.serif": ['Times New Roman'],
-        "text.usetex": True,
+        "text.usetex": False,
     }
 
     sns.set(context="notebook",
