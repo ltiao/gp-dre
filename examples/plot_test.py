@@ -5,7 +5,6 @@ Schemes
 """
 # sphinx_gallery_thumbnail_number = 1
 
-import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
@@ -112,17 +111,28 @@ for dataset_name, load_dataset in DATASET_LOADER.items():
 # %%
 
 data = pd.DataFrame(rows)
-pivot_data = pd.pivot_table(data, columns="importance", values="nmse",
-                            index=["dataset_name", "model_name", "scale",
-                                   "split", "seed", "train_rate"]).reset_index()
 
 # %%
 
 g = sns.catplot(x="split", y="nmse", hue="importance", style="dataset_name",
                 row="model_name", col="scale", dodge=True,
-                data=data, kind="point", alpha=0.8,
-                join=True, markers="d", scale=0.8,
+                data=data[data.dataset_name == "boston"], kind="point",
+                alpha=0.8, join=True, markers="d", scale=0.8,
                 facet_kws=dict(sharex=False, sharey=False))
+
+# %%
+
+g = sns.catplot(x="split", y="nmse", hue="importance", style="dataset_name",
+                row="model_name", col="scale", dodge=True,
+                data=data[data.dataset_name == "diabetes"], kind="point",
+                alpha=0.8, join=True, markers="d", scale=0.8,
+                facet_kws=dict(sharex=False, sharey=False))
+
+# %%
+
+pivot_data = pd.pivot_table(data, columns="importance", values="nmse",
+                            index=["dataset_name", "model_name", "scale",
+                                   "split", "seed", "train_rate"]).reset_index()
 
 # %%
 

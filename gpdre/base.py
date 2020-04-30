@@ -3,13 +3,16 @@ import numpy as np
 
 import tensorflow as tf
 import tensorflow_probability as tfp
+import tensorflow.keras.backend as K
 
-from abc import ABC, abstractmethod
 from tensorflow.keras.layers import Layer
 from tensorflow.keras.initializers import Identity, Constant
 from tensorflow.keras.metrics import binary_accuracy
 from tensorflow.keras import optimizers
+
 from sklearn.utils import check_random_state
+
+from abc import ABC, abstractmethod
 
 from .models import DenseSequential
 from .losses import binary_crossentropy_from_logits
@@ -159,13 +162,13 @@ class MLPDensityRatioEstimator(DensityRatioBase):
 
     def logit(self, X):
 
-        return self.model(X)
+        return K.squeeze(self.model(X), axis=-1)
 
-    def compile(self, optimizer, *args, **kwargs):
+    def compile(self, optimizer, metrics=["accuracy"], *args, **kwargs):
 
         self.model.compile(optimizer=optimizer,
                            loss=binary_crossentropy_from_logits,
-                           *args, **kwargs)
+                           metrics=metrics, *args, **kwargs)
 
     def fit(self, X_top, X_bot, *args, **kwargs):
 
