@@ -74,6 +74,13 @@ def get_metrics_diff(data_uniform, data_exact):
 
     return data_uniform.sub(data_exact)
 
+
+def get_split_largest_diff(data_diff):
+
+    data_diff_mean = data_diff.groupby(level="split").mean()
+
+    return data_diff_mean["nmse"].argmax()
+
 # %%
 
 
@@ -115,5 +122,4 @@ plt.show()
 
 # %%
 
-data_diff_mean = data_diff.groupby(level="split").mean()
-data_diff_mean["nmse"].argmax()
+get_split_largest_diff(data_diff)

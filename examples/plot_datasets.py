@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """
-Datasets
-========
+Scikit-learn Datasets
+=====================
 """
 # sphinx_gallery_thumbnail_number = 1
 

@@ -114,24 +114,6 @@ class DensityRatioMarginals(DensityRatioBase):
         return binary_accuracy(y_test, y_pred)
 
     # TODO(LT): deprecate
-    @classmethod
-    def from_covariate_shift_example(cls):
-
-        train = tfd.MixtureSameFamily(
-            mixture_distribution=tfd.Categorical(probs=[0.5, 0.5]),
-            components_distribution=tfd.MultivariateNormalDiag(
-                loc=[[-2.0, 3.0], [2.0, 3.0]], scale_diag=[1.0, 2.0])
-        )
-
-        test = tfd.MixtureSameFamily(
-            mixture_distribution=tfd.Categorical(probs=[0.5, 0.5]),
-            components_distribution=tfd.MultivariateNormalDiag(
-                loc=[[0.0, -1.0], [4.0, -1.0]])
-        )
-
-        return cls(top=test, bot=train)
-
-    # TODO(LT): deprecate
     def make_covariate_shift_dataset(self, class_posterior_fn, num_test,
                                      num_train, threshold=0.5, seed=None):
 
@@ -139,9 +121,11 @@ class DensityRatioMarginals(DensityRatioBase):
         rate = num_test / num_samples
 
         X_test, X_train = self.make_dataset(num_samples, rate=rate, seed=seed)
-        # TODO: Temporary fix. Need to address issue in `DistributionPair`.
+        # TODO(LT): Temporary fix. Need to address issue in `DistributionPair`
         X_train = X_train.squeeze()
         X_test = X_test.squeeze()
+
+        # TODO(LT): this should be done by sampling from a Bernoulli instead...
         y_train = (class_posterior_fn(*X_train.T) > threshold).numpy()
         y_test = (class_posterior_fn(*X_test.T) > threshold).numpy()
 
