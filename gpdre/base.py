@@ -190,7 +190,7 @@ class GaussianProcessClassifier:
             dtype=dtype, name="length_scale", trainable=length_scale_trainable)
         self.scale_diag = tfp.util.TransformedVariable(
             initial_value=np.ones(input_dim), bijector=tfp.bijectors.Exp(),
-            dtype=dtype, name="scale_diag")
+            dtype=dtype, name="scale_diag", trainable=scale_diag_trainable)
 
         base_kernel = kernel_cls(amplitude=self.amplitude,
                                  length_scale=self.length_scale)
