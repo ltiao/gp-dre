@@ -9,7 +9,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
 
-from gpdre.evaluation import CortesDensityRatio
+from gpdre.benchmarks import CortesDensityRatio
 from gpdre.metrics import normalized_mean_squared_error
 
 from sklearn.svm import SVR

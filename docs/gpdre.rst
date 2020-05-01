@@ -21,6 +21,14 @@ gpdre.base module
    :undoc-members:
    :show-inheritance:
 
+gpdre.benchmarks module
+-----------------------
+
+.. automodule:: gpdre.benchmarks
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
 gpdre.cli module
 ----------------
 

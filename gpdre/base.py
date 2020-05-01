@@ -149,11 +149,7 @@ class DensityRatioMarginals(DensityRatioBase):
 
 
 class MLPDensityRatioEstimator(DensityRatioBase):
-    """
-    Light wrapper around Keras model. In the future, will look into
-    subclassing the Keras model or otherwise inheriting the methods in a
-    more automated fashion.
-    """
+
     def __init__(self, num_layers=2, num_units=32, activation="tanh",
                  seed=None, *args, **kwargs):
 
@@ -162,6 +158,8 @@ class MLPDensityRatioEstimator(DensityRatioBase):
 
     def logit(self, X):
 
+        # TODO: time will tell whether squeezing the final axis
+        # makes things easier.
         return K.squeeze(self.model(X), axis=-1)
 
     def compile(self, optimizer, metrics=["accuracy"], *args, **kwargs):

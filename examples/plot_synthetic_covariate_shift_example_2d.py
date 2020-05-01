@@ -35,7 +35,7 @@ activation = "relu"
 l2_factor = 5e-3
 
 optimizer = "adam"
-epochs = 250
+epochs = 400
 batch_size = 32
 
 seed = 8888
@@ -96,7 +96,7 @@ ax.set_title(r"$f(\mathbf{x}) = "
              r"\log p_{\mathrm{te}}(\mathbf{x}) - "
              r"\log p_{\mathrm{tr}}(\mathbf{x})$")
 
-contours = ax.contour(X1, X2, r.logit(X_grid).numpy(), cmap="magma")
+contours = ax.contour(X1, X2, r.logit(X_grid).numpy(), cmap="viridis")
 
 fig.colorbar(contours, ax=ax)
 ax.clabel(contours, fmt="%.2f")
@@ -112,7 +112,7 @@ fig, ax = plt.subplots()
 
 ax.set_title(r"$r(\mathbf{x}) = \exp(f(\mathbf{x}))$")
 
-contours = ax.contour(X1, X2, r.ratio(X_grid).numpy(), cmap="magma")
+contours = ax.contour(X1, X2, r.ratio(X_grid).numpy(), cmap="viridis")
 
 fig.colorbar(contours, ax=ax)
 ax.clabel(contours, fmt="%.2f")
@@ -128,9 +128,9 @@ fig, ax = plt.subplots()
 
 ax.set_title(r"$P(s=1|\mathbf{x}) = \sigma(f(\mathbf{x}))$")
 
-contours = ax.contour(X1, X2, r.prob(X_grid).numpy(), cmap="magma")
+contours = ax.contour(X1, X2, r.prob(X_grid).numpy(), cmap="viridis")
 
-ax.scatter(*X.T, c=r.prob(X).numpy(), cmap="magma", alpha=0.6)
+ax.scatter(*X.T, c=r.prob(X).numpy(), cmap="viridis", alpha=0.6)
 
 fig.colorbar(contours, ax=ax)
 ax.clabel(contours, fmt="%.2f")
