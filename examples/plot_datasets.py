@@ -11,6 +11,7 @@ import seaborn as sns
 
 from sklearn.datasets import (load_iris, load_wine, load_breast_cancer,
                               load_diabetes, load_boston)
+from gpdre.plotting import continuous_pairplot
 
 
 def make_data(dataset):
@@ -63,9 +64,8 @@ g = sns.pairplot(data=make_data(breast_cancer), hue="target",
 
 boston = load_boston()
 
-g = sns.PairGrid(data=make_data(boston), hue="target",
-                 palette="viridis", corner=True)
-g.map_lower(plt.scatter)
+g = continuous_pairplot(features=boston.data, target=boston.target,
+                        columns=boston.feature_names)
 
 # %%
 # Diabetes dataset
@@ -73,6 +73,5 @@ g.map_lower(plt.scatter)
 
 diabetes = load_diabetes()
 
-g = sns.PairGrid(data=make_data(diabetes), hue="target",
-                 palette="viridis", corner=True)
-g.map_lower(plt.scatter)
+g = continuous_pairplot(features=diabetes.data, target=diabetes.target,
+                        columns=diabetes.feature_names)

@@ -2,10 +2,8 @@
 
 import numpy as np
 
-from scipy.special import expit
-from sklearn.utils import shuffle as _shuffle
 from sklearn.model_selection._split import BaseShuffleSplit
-from sklearn.utils import check_random_state
+from sklearn.utils import check_random_state, shuffle as _shuffle
 
 
 class CovariateShiftSplit(BaseShuffleSplit):
@@ -33,30 +31,6 @@ class CovariateShiftSplit(BaseShuffleSplit):
             yield ind_train, ind_test
 
 
-def test_prob_cortes(X, rng):
-
-    _, num_features = X.shape
-
-    X_tilde = X - X.mean(axis=1, keepdims=True)
-
-    # TODO: this assumes `X` has been normalized
-    w = rng.uniform(low=-1.0, high=1.0, size=num_features)
-    u = X_tilde.dot(w)
-    logit = 4.0 * u / u.std()
-
-    return expit(logit)
-
-
-def test_prob_sugiyama(X, rng):
-
-    _, num_features = X.shape
-
-    feature_index = rng.randint(num_features)
-
-    # TODO: this assumes `X` has been normalized
-    return np.minimum(1.0, 4.0 * X[..., feature_index]**2)
-
-
 def make_classification_dataset(X_top, X_bot, shuffle=False, dtype="float64",
                                 random_state=None):
 
@@ -70,3 +44,13 @@ def make_classification_dataset(X_top, X_bot, shuffle=False, dtype="float64",
         X, y = _shuffle(X, y, random_state=random_state)
 
     return X, y
+
+
+def train_test_split(X, y, prob, seed=None):
+
+    rng = check_random_state(seed)
+
+    mask_test = rng.binomial(n=1, p=prob).astype(bool)
+    mask_train = ~mask_test
+
+    return (X[mask_train], y[mask_train]), (X[mask_test], y[mask_test])

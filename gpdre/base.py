@@ -10,13 +10,12 @@ from tensorflow.keras.initializers import Identity, Constant
 from tensorflow.keras.metrics import binary_accuracy
 from tensorflow.keras import optimizers
 
-from sklearn.utils import check_random_state
-
 from abc import ABC, abstractmethod
 
 from .models import DenseSequential
 from .losses import binary_crossentropy_from_logits
 from .datasets import make_classification_dataset
+from .datasets.base import train_test_split
 from .utils import get_kl_weight
 
 from tqdm import trange
@@ -28,34 +27,29 @@ kernels = tfp.math.psd_kernels
 
 class DensityRatioBase(ABC):
 
-    def __call__(self, x):
+    def __call__(self, X, y=None):
 
-        return self.ratio(x)
+        return self.ratio(X, y)
 
     @abstractmethod
-    def logit(self, x):
+    def logit(self, X, y=None):
         pass
 
-    def ratio(self, x):
+    def ratio(self, X, y=None):
 
-        return tf.exp(self.logit(x))
+        return tf.exp(self.logit(X, y))
 
-    def prob(self, x):
+    def prob(self, X, y=None):
         """
         Probability of sample being from P_{top}(x) vs. P_{bot}(x).
         """
-        return tf.sigmoid(self.logit(x))
+        return tf.sigmoid(self.logit(X, y))
 
     def train_test_split(self, X, y, seed=None):
 
-        rng = check_random_state(seed)
-
         # TODO: clean up API to support both pure NumPy and TensorFlow 2.0
         # eager computations.
-        mask_test = rng.binomial(n=1, p=self.prob(X).numpy()).astype(bool)
-        mask_train = ~mask_test
-
-        return (X[mask_train], y[mask_train]), (X[mask_test], y[mask_test])
+        return train_test_split(X, y, prob=self.prob(X, y).numpy(), seed=seed)
 
 
 class DensityRatio(DensityRatioBase):
@@ -64,8 +58,8 @@ class DensityRatio(DensityRatioBase):
 
         self.logit_fn = logit_fn
 
-    def logit(self, x):
-        return self.logit_fn(x)
+    def logit(self, X, y=None):
+        return self.logit_fn(X)
 
 
 class DensityRatioMarginals(DensityRatioBase):
@@ -75,9 +69,9 @@ class DensityRatioMarginals(DensityRatioBase):
         self.top = top
         self.bot = bot
 
-    def logit(self, x):
+    def logit(self, X, y=None):
 
-        return self.top.log_prob(x) - self.bot.log_prob(x)
+        return self.top.log_prob(X) - self.bot.log_prob(X)
 
     def make_dataset(self, num_samples, rate=0.5, dtype="float64", seed=None):
 
@@ -103,12 +97,12 @@ class DensityRatioMarginals(DensityRatioBase):
         return tfd.kl_divergence(self.top, self.bot)
 
     # TODO(LT): deprecate
-    def optimal_accuracy(self, x_test, y_test):
+    def optimal_accuracy(self, X_test, y_test):
 
         # Required when some distributions are inherently `float32` such as
         # the `MixtureSameFamily`.
         # TODO: Add flexibility for whether to cast to `float64`.
-        y_pred = tf.cast(tf.squeeze(self.prob(x_test)),
+        y_pred = tf.cast(tf.squeeze(self.prob(X_test)),
                          dtype=tf.float64)
 
         return binary_accuracy(y_test, y_pred)
