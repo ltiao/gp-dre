@@ -130,8 +130,9 @@ class GaussianProcessClassifier:
 
             with tf.GradientTape() as tape:
                 loss = - elbo(y_batch, qf_batch)
-                gradients = tape.gradient(loss, variables)
-                self.optimizer.apply_gradients(zip(gradients, variables))
+
+            gradients = tape.gradient(loss, variables)
+            self.optimizer.apply_gradients(zip(gradients, variables))
 
         dataset = tf.data.Dataset.from_tensor_slices((X, y))
 

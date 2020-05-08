@@ -40,7 +40,8 @@ quadrature_size = 20
 
 jitter = 1e-6
 
-kernel_cls = kernels.MaternFiveHalves
+# kernel_cls = kernels.MaternFiveHalves
+kernel_cls = kernels.ExponentiatedQuadratic
 
 seed = 8888  # set random seed for reproducibility
 random_state = np.random.RandomState(seed)
