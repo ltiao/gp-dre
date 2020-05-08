@@ -4,8 +4,8 @@ __author__ = """Louis Tiao"""
 __email__ = 'louistiao@gmail.com'
 __version__ = '0.1.0'
 
-from .base import (GaussianProcessDensityRatioEstimator,
-                   DensityRatio, DensityRatioMarginals)
+from .base import DensityRatio, DensityRatioMarginals
+from .gaussian_processes import GaussianProcessDensityRatioEstimator
 
 __all__ = [
     "GaussianProcessDensityRatioEstimator",
