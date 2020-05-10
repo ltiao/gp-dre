@@ -27,10 +27,11 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 # TODO: copy to temporary dir rather than unknown current dir
 COPY requirements*.txt ./
-RUN python -m pip install --upgrade pip==20.0.2 keyrings.alt==3.4.0 && \
+RUN python -m pip install --upgrade pip==20.1 keyrings.alt==3.4.0 && \
     python -m pip install --no-cache-dir -r requirements_dev.txt && \
 	python -m pip install --no-cache-dir -r requirements.txt 
 
+# Install TensorlFow Probability (building and installing the wheel ourselves)
 # TODO: take care of temporary dir properly (not this /tmp/whtvr placeholder)
 COPY probability /tmp/whtvr/probability
 WORKDIR /tmp/whtvr/probability
@@ -38,6 +39,10 @@ RUN bazel build --copt=-O3 --copt=-march=native :pip_pkg && \
     PKGDIR=$(mktemp -d) && \
     ./bazel-bin/pip_pkg $PKGDIR && \
     python -m pip install --upgrade $PKGDIR/*.whl
+
+# Install GPFlow (taking care of its dependencies ourselves)
+RUN python -m pip install --no-cache-dir multipledispatch tabulate dataclasses && \
+    python -m pip install --no-cache-dir --no-deps gpflow==2.0.1
 
 RUN mkdir -p /usr/src/app
 

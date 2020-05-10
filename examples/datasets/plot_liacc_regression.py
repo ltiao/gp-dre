@@ -14,11 +14,16 @@ from gpdre.datasets.liacc_regression import load_dataset, DATASET_LOADER
 from gpdre.plotting import continuous_pairplot
 # %%
 
+# constants
+data_home = "../../datasets/"
+
+# %%
+
 rows = []
 
 for dataset_name in DATASET_LOADER.keys():
 
-    train_data, test_data = load_dataset(dataset_name)
+    train_data, test_data = load_dataset(dataset_name, data_home=data_home)
 
     X_train, y_train = train_data
 
@@ -58,30 +63,30 @@ print(data.to_latex())
 # %%
 # Visualize the lower-dimensional datasets.
 
-train_data, test_data = load_dataset("puma8nh")
+train_data, test_data = load_dataset("puma8nh", data_home=data_home)
 
 g = continuous_pairplot(*train_data, plot_kws=dict(s=6.0, alpha=0.6))
 
 # %%
 
-train_data, test_data = load_dataset("kin8nm")
+train_data, test_data = load_dataset("kin8nm", data_home=data_home)
 
 g = continuous_pairplot(*train_data, plot_kws=dict(s=6.0, alpha=0.6))
 
 # %%
 
-train_data, test_data = load_dataset("bank8fm")
+train_data, test_data = load_dataset("bank8fm", data_home=data_home)
 
 g = continuous_pairplot(*train_data, plot_kws=dict(s=6.0, alpha=0.6))
 
 # %%
 
-train_data, test_data = load_dataset("cpu_small")
+train_data, test_data = load_dataset("cpu_small", data_home=data_home)
 
 g = continuous_pairplot(*train_data, plot_kws=dict(s=6.0, alpha=0.6))
 
 # %%
 
-train_data, test_data = load_dataset("elevators")
+train_data, test_data = load_dataset("elevators", data_home=data_home)
 
 g = continuous_pairplot(*train_data, plot_kws=dict(s=6.0, alpha=0.6))

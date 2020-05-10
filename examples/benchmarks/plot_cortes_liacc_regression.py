@@ -103,7 +103,7 @@ rows_exact = []
 for dataset_name in DATASET_LOADER.keys():
 
     # `test_data` is ignored
-    (X_all, y_all), test_data = load_dataset(dataset_name)
+    (X_all, y_all), test_data = load_dataset(dataset_name, data_home="../../datasets/")
 
     X_subset, _, y_subset, _ = train_test_split(X_all, y_all,
                                                 train_size=num_samples,

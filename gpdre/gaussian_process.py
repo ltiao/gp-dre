@@ -1,6 +1,7 @@
 import numpy as np
 import tensorflow as tf
 import tensorflow_probability as tfp
+import gpflow
 
 from tensorflow.keras.layers import Layer
 from tensorflow.keras.initializers import Identity, Constant
@@ -16,6 +17,79 @@ from tqdm import trange
 # shortcuts
 tfd = tfp.distributions
 kernels = tfp.math.psd_kernels
+
+
+def _add_diagonal_shift(matrix, shift):
+    return tf.linalg.set_diag(matrix, tf.linalg.diag_part(matrix) + shift)
+
+
+class GaussianProcessClassifierGPFlow:
+
+    def __init__(self, input_dim, num_inducing_points,
+                 inducing_index_points_initializer,
+                 kernel_cls=gpflow.kernels.SquaredExponential,
+                 use_ard=True, jitter=1e-6, seed=None, dtype=tf.float64):
+
+        inducing_index_points_initial = (
+            inducing_index_points_initializer(shape=(num_inducing_points,
+                                                     input_dim), dtype=dtype))
+
+        self.vgp = gpflow.models.SVGP(
+            likelihood=gpflow.likelihoods.Bernoulli(invlink=tf.sigmoid),
+            inducing_variable=inducing_index_points_initial,
+            kernel=kernel_cls())
+
+        self.optimizer = None
+
+        self.jitter = jitter
+        self.seed = seed
+
+    def logit_distribution(self, X):
+
+        qf_loc, qf_cov = self.vgp.predict_f(X, full_cov=True)
+
+        qf_scale = tf.linalg.LinearOperatorLowerTriangular(
+            tf.linalg.cholesky(_add_diagonal_shift(qf_cov[..., -1],
+                                                   self.jitter)),
+            is_non_singular=True)
+
+        return tfd.MultivariateNormalLinearOperator(loc=qf_loc[..., -1],
+                                                    scale=qf_scale)
+
+    def compile(self, optimizer, num_samples=None):
+
+        self.optimizer = optimizers.get(optimizer)
+        self.num_samples = num_samples
+
+    def fit(self, X, y, epochs=1, batch_size=32, shuffle=True, buffer_size=256):
+
+        num_train = len(X)
+
+        self.vgp.num_data = num_train
+
+        @tf.function
+        def train_on_batch(X_batch, y_batch):
+
+            variables = self.vgp.trainable_variables
+
+            with tf.GradientTape(watch_accessed_variables=False) as tape:
+                tape.watch(variables)
+                loss = self.vgp.training_loss((X_batch, y_batch))
+
+            gradients = tape.gradient(loss, variables)
+            self.optimizer.apply_gradients(zip(gradients, variables))
+
+        dataset = tf.data.Dataset.from_tensor_slices((X, y))
+
+        if shuffle:
+            dataset = dataset.shuffle(seed=self.seed, buffer_size=buffer_size)
+
+        dataset = dataset.batch(batch_size, drop_remainder=True)
+
+        for epoch in trange(epochs):
+            for step, (X_batch, y_batch) in enumerate(dataset):
+
+                train_on_batch(X_batch, y_batch)
 
 
 class GaussianProcessClassifier:
@@ -38,13 +112,13 @@ class GaussianProcessClassifier:
             scale_diag_trainable = True
 
         self.amplitude = tfp.util.TransformedVariable(
-            initial_value=1.0, bijector=tfp.bijectors.Exp(),
+            initial_value=1.0, bijector=tfp.bijectors.Softplus(),
             dtype=dtype, name="amplitude")
         self.length_scale = tfp.util.TransformedVariable(
-            initial_value=1.0, bijector=tfp.bijectors.Exp(),
+            initial_value=1.0, bijector=tfp.bijectors.Softplus(),
             dtype=dtype, name="length_scale", trainable=length_scale_trainable)
         self.scale_diag = tfp.util.TransformedVariable(
-            initial_value=np.ones(input_dim), bijector=tfp.bijectors.Exp(),
+            initial_value=np.ones(input_dim), bijector=tfp.bijectors.Softplus(),
             dtype=dtype, name="scale_diag", trainable=scale_diag_trainable)
 
         base_kernel = kernel_cls(amplitude=self.amplitude,
@@ -54,7 +128,7 @@ class GaussianProcessClassifier:
                                             scale_diag=self.scale_diag)
 
         self.observation_noise_variance = tfp.util.TransformedVariable(
-            initial_value=1e-6, bijector=tfp.bijectors.Exp(),
+            initial_value=1e-6, bijector=tfp.bijectors.Softplus(),
             dtype=dtype, name="observation_noise_variance")
 
         self.inducing_index_points = tf.Variable(
@@ -90,6 +164,29 @@ class GaussianProcessClassifier:
                 self.variational_inducing_observations_scale),
             observation_noise_variance=self.observation_noise_variance,
             jitter=jitter)
+
+    @staticmethod
+    def make_likelihood(f, reinterpreted_batch_ndims=1):
+
+        p = tfd.Bernoulli(logits=f)
+
+        return tfd.Independent(
+            p, reinterpreted_batch_ndims=reinterpreted_batch_ndims)
+
+    @staticmethod
+    def log_likelihood(y, f):
+
+        likelihood = GaussianProcessClassifier.make_likelihood(f)
+        return likelihood.log_prob(y)
+
+    def conditional(self, X, sample_shape=(), jitter=None):
+        """
+        Sample batch of conditional distributions.
+        """
+        qf = self.logit_distribution(X, jitter=jitter)
+        f_samples = qf.sample(sample_shape)
+
+        return self.make_likelihood(f_samples)
 
     def compile(self, optimizer, quadrature_size=20, num_samples=None):
 
@@ -146,29 +243,6 @@ class GaussianProcessClassifier:
 
                 train_on_batch(X_batch, y_batch)
 
-    @staticmethod
-    def make_likelihood(f, reinterpreted_batch_ndims=1):
-
-        p = tfd.Bernoulli(logits=f)
-
-        return tfd.Independent(
-            p, reinterpreted_batch_ndims=reinterpreted_batch_ndims)
-
-    @staticmethod
-    def log_likelihood(y, f):
-
-        likelihood = GaussianProcessClassifier.make_likelihood(f)
-        return likelihood.log_prob(y)
-
-    def conditional(self, X, sample_shape=(), jitter=None):
-        """
-        Sample batch of conditional distributions.
-        """
-        qf = self.logit_distribution(X, jitter=jitter)
-        f_samples = qf.sample(sample_shape)
-
-        return self.make_likelihood(f_samples)
-
 
 class GaussianProcessDensityRatioEstimator(DensityRatioBase, GaussianProcessClassifier):
 
@@ -198,9 +272,13 @@ class GaussianProcessDensityRatioEstimator(DensityRatioBase, GaussianProcessClas
         inputs.
 
         Not to be confused with a "ratio distribution" in the conventional
-        sense -- distribution of ratio of random variables.
+        sense, which is the distribution of ratio of random variables.
         """
         qf = self.logit_distribution(X, jitter=jitter)
+
+        # TODO(LT): This way of defining the distribution doesn't yield the
+        # appropriate samples -- samples from the marginal (instead of the full
+        # covariance Gaussian) and is then transformed through the exponential.
         qr = tfd.LogNormal(loc=qf.mean(), scale=qf.stddev())
 
         return tfd.Independent(

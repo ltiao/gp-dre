@@ -5,7 +5,7 @@ __email__ = 'louistiao@gmail.com'
 __version__ = '0.1.0'
 
 from .base import DensityRatio, DensityRatioMarginals
-from .gaussian_processes import GaussianProcessDensityRatioEstimator
+from .gaussian_process import GaussianProcessDensityRatioEstimator
 
 __all__ = [
     "GaussianProcessDensityRatioEstimator",

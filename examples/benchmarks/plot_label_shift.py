@@ -66,7 +66,7 @@ for dataset_name in dataset_names:
 
     else:
 
-        (X_all, y_all), test_data = DATASET_LOADER[dataset_name]()
+        (X_all, y_all), test_data = DATASET_LOADER[dataset_name](data_home="../../datasets/")
 
     X, X_test, y, y_test = train_test_split(X_all, y_all,
                                             test_size=test_rate,
