@@ -180,12 +180,6 @@ qf_loc, qf_var = vgp.predict_f(X_grid, full_cov=False)
 qf_scale = tf.sqrt(qf_var)
 # %%
 
-K = (vgp.kernel.K(vgp.inducing_variable.Z) +
-     jitter * tf.eye(num_inducing_points, dtype=tf.float64))
-L = tf.linalg.cholesky(K)
-m = tf.matmul(L, vgp.q_mu)
-# %%
-
 fig, ax = plt.subplots()
 
 ax.plot(X_grid, r.logit(X_grid), c='k',
@@ -200,7 +194,7 @@ fill_between_stddev(X_grid.squeeze(),
 ax.scatter(vgp.inducing_variable.Z.numpy(),
            np.full_like(vgp.inducing_variable.Z.numpy(), -5.0),
            marker='^', c="tab:gray", label="inducing inputs", alpha=0.8)
-ax.scatter(vgp.inducing_variable.Z.numpy(), m.numpy(),
+ax.scatter(vgp.inducing_variable.Z.numpy(), vgp.q_mu.numpy(),
            marker='+', c="tab:blue", label="inducing variable mean")
 
 ax.set_xlabel('$x$')

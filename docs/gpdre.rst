@@ -37,6 +37,14 @@ gpdre.cli module
    :undoc-members:
    :show-inheritance:
 
+gpdre.gaussian\_process module
+------------------------------
+
+.. automodule:: gpdre.gaussian_process
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
 gpdre.initializers module
 -------------------------
 
