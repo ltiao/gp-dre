@@ -8,18 +8,20 @@ Sparse VGP (GPFlow)
 
 import numpy as np
 
-import gpflow
 import tensorflow as tf
 import tensorflow_probability as tfp
 
 import matplotlib.pyplot as plt
 
-from tensorflow.keras import optimizers
-
+from gpdre.gaussian_process.gpflow import SVGPWrapper
 from gpdre.datasets import make_classification_dataset
 from gpdre.initializers import KMeans
 from gpdre.plotting import fill_between_stddev
 from gpdre.base import DensityRatioMarginals
+
+from gpflow.kernels import SquaredExponential
+
+from tensorflow.keras import optimizers
 
 from tqdm import trange
 
@@ -30,25 +32,25 @@ tfd = tfp.distributions
 
 # constants
 num_train = 2000  # nbr training points in synthetic dataset
-num_inducing_points = 50
 num_features = 1  # dimensionality
 
 num_test = 40
 num_index_points = 512  # nbr of index points
 num_samples = 25
 
+kernel_cls = SquaredExponential
+whiten = True
+num_inducing_points = 50
+
 optimizer_name = "adam"
 num_epochs = 800
 batch_size = 64
 shuffle_buffer_size = 500
 
-whiten = True
-
-kernel_cls = gpflow.kernels.SquaredExponential
-
 jitter = 1e-6
-seed = 8888  # set random seed for reproducibility
-random_state = np.random.RandomState(seed)
+
+seed = 8888
+dataset_seed = 8888  # set random seed for reproducibility
 
 x_min, x_max = -5.0, 5.0
 y_min, y_max = 0.0, 12.0
@@ -114,7 +116,7 @@ plt.show()
 # %%
 # Create classification dataset.
 
-X_p, X_q = r.make_dataset(num_train, seed=seed)
+X_p, X_q = r.make_dataset(num_train, seed=dataset_seed)
 X_train, y_train = make_classification_dataset(X_p, X_q)
 Y_train = np.atleast_2d(y_train).T
 
@@ -134,35 +136,36 @@ ax.set_xlabel('$x$')
 ax.legend()
 
 plt.show()
-
 # %%
 
 inducing_index_points_initializer = KMeans(X_train, seed=seed)
 inducing_index_points_initial = (
     inducing_index_points_initializer(shape=(num_inducing_points, num_features)))
-
 # %%
 
-vgp = gpflow.models.SVGP(
-    likelihood=gpflow.likelihoods.Bernoulli(invlink=tf.sigmoid),
-    inducing_variable=inducing_index_points_initial,
-    kernel=kernel_cls(), num_data=len(X_train), whiten=whiten,
+vgp = SVGPWrapper(
+    kernel=kernel_cls(),
+    inducing_index_points_initial=inducing_index_points_initial,
+    index_points=X_grid,
+    jitter=jitter,
+    whiten=whiten,
+    num_data=len(X_train)
 )
-
 # %%
 
 optimizer = optimizers.get(optimizer_name)
-
 # %%
+
+
 @tf.function
 def train_on_batch(X_batch, y_batch):
 
     with tf.GradientTape(watch_accessed_variables=False) as tape:
-        tape.watch(vgp.trainable_variables)
-        loss = vgp.training_loss((X_batch, y_batch))
+        tape.watch(vgp._vgp.trainable_variables)
+        loss = vgp._vgp.training_loss((X_batch, y_batch))
 
-    gradients = tape.gradient(loss, vgp.trainable_variables)
-    optimizer.apply_gradients(zip(gradients, vgp.trainable_variables))
+    gradients = tape.gradient(loss, vgp._vgp.trainable_variables)
+    optimizer.apply_gradients(zip(gradients, vgp._vgp.trainable_variables))
 # %%
 
 
@@ -176,14 +179,16 @@ for epoch in trange(num_epochs):
 
         train_on_batch(X_batch, y_batch)
 # %%
-qf_loc, qf_var = vgp.predict_f(X_grid, full_cov=False)
-qf_scale = tf.sqrt(qf_var)
+
+qf_loc = vgp.mean()
+qf_scale = vgp.stddev()
 # %%
 
-K = (vgp.kernel.K(vgp.inducing_variable.Z) +
-     jitter * tf.eye(num_inducing_points, dtype=tf.float64))
-L = tf.linalg.cholesky(K)
-m = tf.matmul(L, vgp.q_mu)
+
+# K = (vgp.kernel.K(vgp.inducing_variable.Z) +
+#      jitter * tf.eye(num_inducing_points, dtype=tf.float64))
+# L = tf.linalg.cholesky(K)
+# m = tf.matmul(L, vgp.q_mu)
 # %%
 
 fig, ax = plt.subplots()
@@ -191,17 +196,15 @@ fig, ax = plt.subplots()
 ax.plot(X_grid, r.logit(X_grid), c='k',
         label=r"$f(x) = \log p(x) - \log q(x)$")
 
-ax.plot(X_grid, qf_loc.numpy(), label="posterior mean")
-fill_between_stddev(X_grid.squeeze(),
-                    qf_loc.numpy().squeeze(),
-                    qf_scale.numpy().squeeze(), alpha=0.1,
-                    label="posterior std dev", ax=ax)
+ax.plot(X_grid, qf_loc, label="posterior mean")
+fill_between_stddev(X_grid.squeeze(), qf_loc, qf_scale,
+                    alpha=0.1, label="posterior std dev", ax=ax)
 
-ax.scatter(vgp.inducing_variable.Z.numpy(),
-           np.full_like(vgp.inducing_variable.Z.numpy(), -5.0),
-           marker='^', c="tab:gray", label="inducing inputs", alpha=0.8)
-ax.scatter(vgp.inducing_variable.Z.numpy(), m.numpy(),
-           marker='+', c="tab:blue", label="inducing variable mean")
+# ax.scatter(vgp.inducing_variable.Z.numpy(),
+#            np.full_like(vgp.inducing_variable.Z.numpy(), -5.0),
+#            marker='^', c="tab:gray", label="inducing inputs", alpha=0.8)
+# ax.scatter(vgp.inducing_variable.Z.numpy(), m.numpy(),
+#            marker='+', c="tab:blue", label="inducing variable mean")
 
 ax.set_xlabel('$x$')
 ax.set_ylabel('$f(x)$')
@@ -209,13 +212,10 @@ ax.set_ylabel('$f(x)$')
 ax.legend()
 
 plt.show()
-
 # %%
 
-ratio_marginal = tfd.LogNormal(loc=tf.squeeze(qf_loc, axis=-1),
-                               scale=tf.squeeze(qf_scale, axis=-1))
+ratio_marginal = tfd.LogNormal(loc=qf_loc, scale=qf_scale)
 ratio = tfd.Independent(ratio_marginal, reinterpreted_batch_ndims=1)
-
 # %%
 
 fig, ax = plt.subplots()
@@ -236,7 +236,6 @@ ax.set_ylabel(r"$r(x)$")
 ax.legend()
 
 plt.show()
-
 # %%
 
 Y_grid = np.linspace(y_min, y_max, y_num_points).reshape(-1, 1)
@@ -285,11 +284,11 @@ plt.show()
 
 # %%
 
-qf_samples = vgp.predict_f_samples(X_grid, num_samples)
-py = tfd.Independent(
-    tfd.Bernoulli(logits=tf.squeeze(qf_samples, axis=-1)),
-    reinterpreted_batch_ndims=1)
+qf_samples = vgp.sample(num_samples, seed=seed)
+# %%
 
+py = tfd.Independent(
+    tfd.Bernoulli(logits=qf_samples), reinterpreted_batch_ndims=1)
 # %%
 
 fig, ax = plt.subplots()
@@ -307,17 +306,17 @@ ax.set_xlabel('$x$')
 ax.legend()
 
 plt.show()
-
 # %%
 
-X_test, y_test = r.make_classification_dataset(num_test, seed=seed)
-
+X_test, y_test = r.make_classification_dataset(num_test, seed=dataset_seed)
 # %%
 
-qf_samples = vgp.predict_f_samples(X_test, num_samples)
+qf_samples = vgp.get_marginal_distribution(index_points=X_test) \
+                .sample(num_samples, seed=seed)
+# %%
+
 py = tfd.Independent(
-    tfd.Bernoulli(logits=tf.squeeze(qf_samples, axis=-1)),
-    reinterpreted_batch_ndims=1)
+    tfd.Bernoulli(logits=qf_samples), reinterpreted_batch_ndims=1)
 y_scores = py.mean().numpy()
 y_score_min, y_score_max = np.percentile(y_scores, q=[5.0, 95.0], axis=0)
 # %%

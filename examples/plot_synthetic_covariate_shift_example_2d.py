@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """
-Synthetic 2D Covariate Shift Problem
-====================================
+Synthetic 2D Classification Covariate Shift Problem
+===================================================
 """
 # sphinx_gallery_thumbnail_number = 8
 
@@ -218,7 +218,7 @@ ax.clabel(contours, fmt="%.2f")
 
 ax.scatter(*X_train.T, c=y_train, s=r.ratio(X_train).numpy(),
            cmap="RdYlBu", alpha=0.8, label="train")
-ax.scatter(*X_val.T, marker='x', c=y_val, s=r.ratio(X_train).numpy(),
+ax.scatter(*X_val.T, marker='x', c=y_val, s=r.ratio(X_val).numpy(),
            cmap="RdYlBu", alpha=0.2, label="test")
 
 ax.legend()
@@ -305,7 +305,7 @@ ax.clabel(contours, fmt="%.2f")
 
 ax.scatter(*X_train.T, c=y_train, s=r.ratio(X_train).numpy(),
            cmap="RdYlBu", alpha=0.8, label="train")
-ax.scatter(*X_val.T, marker='x', c=y_val, s=r.ratio(X_train).numpy(),
+ax.scatter(*X_val.T, marker='x', c=y_val, s=r.ratio(X_val).numpy(),
            cmap="RdYlBu", alpha=0.2, label="test")
 
 ax.legend()

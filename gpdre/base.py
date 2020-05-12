@@ -1,11 +1,13 @@
 """Main module."""
+import numpy as np
 import tensorflow as tf
 import tensorflow_probability as tfp
 import tensorflow.keras.backend as K
 
-from tensorflow.keras.metrics import binary_accuracy
-
 from abc import ABC, abstractmethod
+
+from tensorflow.keras.metrics import binary_accuracy
+from sklearn.utils import check_random_state
 
 from .models import DenseSequential
 from .losses import binary_crossentropy_from_logits
@@ -97,6 +99,32 @@ class DensityRatioMarginals(DensityRatioBase):
                          dtype=tf.float64)
 
         return binary_accuracy(y_test, y_pred)
+
+    def make_regression_dataset(self, num_test, num_train, latent_fn,
+                                noise_scale=1.0, squeeze=True, seed=None):
+
+        rng = check_random_state(seed)
+
+        # TODO(LT): this may not guarantee that `len(X_test) == num_test` and
+        # similarly go
+        num_samples = num_test + num_train
+        rate = num_test / num_samples
+
+        X_test, X_train = self.make_dataset(num_samples, rate=rate, seed=seed)
+
+        # TODO(LT): broadcast to shape of `latent_fn(X)` properly.
+        # Currently assumes shape is always `(*, 1)`.
+        eps_train = noise_scale * rng.randn(num_train, 1)
+        eps_test = noise_scale * rng.randn(num_test, 1)
+
+        Y_train = latent_fn(X_train) + eps_train
+        Y_test = latent_fn(X_test) + eps_test
+
+        if squeeze:
+            Y_train = np.squeeze(Y_train)
+            Y_test = np.squeeze(Y_test)
+
+        return (X_train, Y_train), (X_test, Y_test)
 
     # TODO(LT): deprecate
     def make_covariate_shift_dataset(self, class_posterior_fn, num_test,

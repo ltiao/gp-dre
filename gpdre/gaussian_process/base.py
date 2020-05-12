@@ -1,15 +1,14 @@
 import numpy as np
 import tensorflow as tf
 import tensorflow_probability as tfp
-import gpflow
 
 from tensorflow.keras.layers import Layer
 from tensorflow.keras.initializers import Identity, Constant
 from tensorflow.keras import optimizers
 
-from .base import DensityRatioBase
-from .datasets import make_classification_dataset
-from .utils import get_kl_weight
+from ..base import DensityRatioBase
+from ..datasets import make_classification_dataset
+from ..utils import get_kl_weight
 
 from tqdm import trange
 
@@ -17,79 +16,6 @@ from tqdm import trange
 # shortcuts
 tfd = tfp.distributions
 kernels = tfp.math.psd_kernels
-
-
-def _add_diagonal_shift(matrix, shift):
-    return tf.linalg.set_diag(matrix, tf.linalg.diag_part(matrix) + shift)
-
-
-class GaussianProcessClassifierGPFlow:
-
-    def __init__(self, input_dim, num_inducing_points,
-                 inducing_index_points_initializer,
-                 kernel_cls=gpflow.kernels.SquaredExponential,
-                 use_ard=True, jitter=1e-6, seed=None, dtype=tf.float64):
-
-        inducing_index_points_initial = (
-            inducing_index_points_initializer(shape=(num_inducing_points,
-                                                     input_dim), dtype=dtype))
-
-        self.vgp = gpflow.models.SVGP(
-            likelihood=gpflow.likelihoods.Bernoulli(invlink=tf.sigmoid),
-            inducing_variable=inducing_index_points_initial,
-            kernel=kernel_cls())
-
-        self.optimizer = None
-
-        self.jitter = jitter
-        self.seed = seed
-
-    def logit_distribution(self, X):
-
-        qf_loc, qf_cov = self.vgp.predict_f(X, full_cov=True)
-
-        qf_scale = tf.linalg.LinearOperatorLowerTriangular(
-            tf.linalg.cholesky(_add_diagonal_shift(qf_cov[..., -1],
-                                                   self.jitter)),
-            is_non_singular=True)
-
-        return tfd.MultivariateNormalLinearOperator(loc=qf_loc[..., -1],
-                                                    scale=qf_scale)
-
-    def compile(self, optimizer, num_samples=None):
-
-        self.optimizer = optimizers.get(optimizer)
-        self.num_samples = num_samples
-
-    def fit(self, X, y, epochs=1, batch_size=32, shuffle=True, buffer_size=256):
-
-        num_train = len(X)
-
-        self.vgp.num_data = num_train
-
-        @tf.function
-        def train_on_batch(X_batch, y_batch):
-
-            variables = self.vgp.trainable_variables
-
-            with tf.GradientTape(watch_accessed_variables=False) as tape:
-                tape.watch(variables)
-                loss = self.vgp.training_loss((X_batch, y_batch))
-
-            gradients = tape.gradient(loss, variables)
-            self.optimizer.apply_gradients(zip(gradients, variables))
-
-        dataset = tf.data.Dataset.from_tensor_slices((X, y))
-
-        if shuffle:
-            dataset = dataset.shuffle(seed=self.seed, buffer_size=buffer_size)
-
-        dataset = dataset.batch(batch_size, drop_remainder=True)
-
-        for epoch in trange(epochs):
-            for step, (X_batch, y_batch) in enumerate(dataset):
-
-                train_on_batch(X_batch, y_batch)
 
 
 class GaussianProcessClassifier:
