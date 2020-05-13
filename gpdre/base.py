@@ -4,15 +4,16 @@ import tensorflow as tf
 import tensorflow_probability as tfp
 import tensorflow.keras.backend as K
 
-from abc import ABC, abstractmethod
-
-from tensorflow.keras.metrics import binary_accuracy
-from sklearn.utils import check_random_state
-
 from .models import DenseSequential
 from .losses import binary_crossentropy_from_logits
 from .datasets import make_classification_dataset
 from .datasets.base import train_test_split
+
+from tensorflow.keras.metrics import binary_accuracy
+from sklearn.utils import check_random_state
+
+from abc import ABC, abstractmethod
+
 
 # shortcuts
 tfd = tfp.distributions
