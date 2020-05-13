@@ -49,7 +49,7 @@ shuffle_buffer_size = 500
 
 jitter = 1e-6
 
-seed = 8888
+seed = 42
 dataset_seed = 8888  # set random seed for reproducibility
 
 x_min, x_max = -5.0, 5.0

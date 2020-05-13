@@ -16,6 +16,7 @@ from gpdre.initializers import KMeans
 from gpdre.plotting import fill_between_stddev
 from gpdre.base import DensityRatioMarginals
 
+from gpflow.kernels import SquaredExponential
 # %%
 
 # shortcuts
@@ -36,12 +37,10 @@ optimizer = "adam"
 num_epochs = 800
 batch_size = 64
 shuffle_buffer_size = 500
-quadrature_size = 20
 
 jitter = 1e-6
 
-kernel_cls = kernels.MaternFiveHalves
-# kernel_cls = kernels.ExponentiatedQuadratic
+kernel_cls = SquaredExponential
 
 seed = 8888  # set random seed for reproducibility
 random_state = np.random.RandomState(seed)
@@ -138,7 +137,7 @@ gpdre = GaussianProcessDensityRatioEstimator(
     num_inducing_points=num_inducing_points,
     inducing_index_points_initializer=KMeans(X_train, seed=seed),
     kernel_cls=kernel_cls, jitter=jitter, seed=seed)
-gpdre.compile(optimizer=optimizer, quadrature_size=quadrature_size)
+gpdre.compile(optimizer=optimizer)
 gpdre.fit(X_p, X_q, epochs=num_epochs, batch_size=batch_size,
           buffer_size=shuffle_buffer_size)
 
@@ -160,13 +159,6 @@ fill_between_stddev(X_grid.squeeze(),
                     log_ratio_mean.numpy().squeeze(),
                     log_ratio_stddev.numpy().squeeze(), alpha=0.1,
                     label="posterior std dev", ax=ax)
-
-ax.scatter(gpdre.inducing_index_points.numpy(),
-           np.full_like(gpdre.inducing_index_points.numpy(), -5.0),
-           marker='^', c="tab:gray", label="inducing inputs", alpha=0.8)
-ax.scatter(gpdre.inducing_index_points.numpy(),
-           gpdre.variational_inducing_observations_loc.numpy(),
-           marker='+', c="tab:blue", label="inducing variable mean")
 
 ax.set_xlabel('$x$')
 ax.set_ylabel('$f(x)$')
