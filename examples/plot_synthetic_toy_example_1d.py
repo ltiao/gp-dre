@@ -16,13 +16,12 @@ from gpdre.initializers import KMeans
 from gpdre.plotting import fill_between_stddev
 from gpdre.base import DensityRatioMarginals
 
-from gpflow.kernels import SquaredExponential
+from gpflow.models import SVGP
+from gpflow.kernels import Matern52
 # %%
 
 # shortcuts
 tfd = tfp.distributions
-kernels = tfp.math.psd_kernels
-
 
 # constants
 num_train = 2000  # nbr training points in synthetic dataset
@@ -30,7 +29,7 @@ num_inducing_points = 50
 num_features = 1  # dimensionality
 
 num_test = 40
-num_index_points = 256  # nbr of index points
+num_index_points = 512  # nbr of index points
 num_samples = 25
 
 optimizer = "adam"
@@ -40,10 +39,10 @@ shuffle_buffer_size = 500
 
 jitter = 1e-6
 
-kernel_cls = SquaredExponential
+kernel_cls = Matern52
 
-seed = 8888  # set random seed for reproducibility
-random_state = np.random.RandomState(seed)
+seed = 42
+dataset_seed = 8888  # set random seed for reproducibility
 
 x_min, x_max = -5.0, 5.0
 y_min, y_max = 0.0, 12.0
@@ -110,7 +109,7 @@ plt.show()
 # %%
 # Create classification dataset.
 
-X_p, X_q = r.make_dataset(num_train, seed=seed)
+X_p, X_q = r.make_dataset(num_train, seed=dataset_seed)
 X_train, y_train = make_classification_dataset(X_p, X_q)
 
 # %%
@@ -129,18 +128,16 @@ ax.set_xlabel('$x$')
 ax.legend()
 
 plt.show()
-
 # %%
 
 gpdre = GaussianProcessDensityRatioEstimator(
     input_dim=num_features,
     num_inducing_points=num_inducing_points,
     inducing_index_points_initializer=KMeans(X_train, seed=seed),
-    kernel_cls=kernel_cls, jitter=jitter, seed=seed)
+    kernel_cls=kernel_cls, vgp_cls=SVGP, jitter=jitter, seed=seed)
 gpdre.compile(optimizer=optimizer)
 gpdre.fit(X_p, X_q, epochs=num_epochs, batch_size=batch_size,
           buffer_size=shuffle_buffer_size)
-
 # %%
 
 log_ratio_mean = gpdre.logit(X_grid, convert_to_tensor_fn=tfd.Distribution.mean)
@@ -262,7 +259,7 @@ plt.show()
 
 # %%
 
-X_test, y_test = r.make_classification_dataset(num_test, seed=seed)
+X_test, y_test = r.make_classification_dataset(num_test, seed=dataset_seed)
 
 # %%
 

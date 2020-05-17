@@ -9,6 +9,7 @@ Subpackages
    gpdre.applications
    gpdre.datasets
    gpdre.external
+   gpdre.gaussian_process
 
 Submodules
 ----------
@@ -33,14 +34,6 @@ gpdre.cli module
 ----------------
 
 .. automodule:: gpdre.cli
-   :members:
-   :undoc-members:
-   :show-inheritance:
-
-gpdre.gaussian\_process module
-------------------------------
-
-.. automodule:: gpdre.gaussian_process
    :members:
    :undoc-members:
    :show-inheritance:

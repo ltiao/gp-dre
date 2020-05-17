@@ -15,6 +15,6 @@ class RuLSIFDensityRatioEstimator(DensityRatioBase):
 
         self.densratio_obj = densratio(X_top, X_bot, alpha=self.alpha)
 
-    def logit(self, X):
+    def logit(self, X, y=None):
 
         return tf.math.log(self.densratio_obj.compute_density_ratio(X))

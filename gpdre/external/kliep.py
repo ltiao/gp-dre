@@ -1,8 +1,14 @@
+import tensorflow as tf
+
 import numpy as np
 import warnings
 
+from ..base import DensityRatioBase
 
-class KLIEPDensityRatioEstimator:
+from sklearn.utils import check_random_state
+
+
+class KLIEPDensityRatioEstimator(DensityRatioBase):
     """
     Class to accomplish direct density estimation implementing the original KLIEP
     algorithm from Direct Importance Estimation with Model Selection
@@ -28,7 +34,7 @@ class KLIEPDensityRatioEstimator:
     """
 
     def __init__(self, max_iter=5000, num_params=[0.1, 0.2], epsilon=1e-4, cv=3,
-                 sigmas=[.01, 0.1, 0.25, 0.5, 0.75, 1.0], random_state=None,
+                 sigmas=[.01, 0.1, 0.25, 0.5, 0.75, 1.0], seed=None,
                  verbose=0):
         """
         Direct density estimation using an inner LCV loop to estimate the proper model. Can be used with sklearn
@@ -46,9 +52,21 @@ class KLIEPDensityRatioEstimator:
         self.verbose = verbose
         self.sigmas = sigmas
         self.cv = cv
-        self.random_state = 0
+        self.rng = check_random_state(seed)
 
-    def fit(self, X_train, X_test, alpha_0=None):
+    def ratio(self, X, y=None, sigma=None):
+        """ Equivalent of w(X) from the original paper."""
+
+        X = self._reshape_X(X)
+        if not self._fitted:
+            raise Exception('Not fitted!')
+        return np.dot(self._phi(X, sigma=sigma), self._alpha).reshape((X.shape[0],))
+
+    def logit(self, X, y=None, sigma=None):
+
+        return tf.math.log(self.ratio(X, y, sigma))
+
+    def fit(self, X_top, X_bot, alpha_0=None):
         """ Uses cross validation to select sigma as in the original paper (LCV).
             In a break from sklearn convention, y=X_test.
             The parameter cv corresponds to R in the original paper.
@@ -56,11 +74,9 @@ class KLIEPDensityRatioEstimator:
 
         # LCV loop, shuffle a copy in place for performance.
         cv = self.cv
-        chunk = int(X_test.shape[0]/float(cv))
-        if self.random_state is not None:
-            np.random.seed(self.random_state)
-        X_test_shuffled = X_test.copy()
-        np.random.shuffle(X_test_shuffled)
+        chunk = int(X_top.shape[0]/float(cv))
+        X_top_shuffled = X_top.copy()
+        self.rng.shuffle(X_top_shuffled)
 
         j_scores = {}
 
@@ -78,10 +94,10 @@ class KLIEPDensityRatioEstimator:
                     for k in range(1, cv+1):
                         if self.verbose > 0:
                             print('Training: sigma: %s    R: %s' % (sigma, k))
-                        X_test_fold = X_test_shuffled[(k-1)*chunk:k*chunk, :]
+                        X_top_fold = X_top_shuffled[(k-1)*chunk:k*chunk, :]
                         j_scores[(num_param, sigma)][k-1] = self._fit(
-                            X_train=X_train,
-                            X_test=X_test_fold,
+                            X_bot=X_bot,
+                            X_top=X_top_fold,
                             num_parameters=num_param,
                             sigma=sigma)
                     j_scores[(num_param, sigma)] = np.mean(j_scores[(num_param, sigma)])
@@ -97,43 +113,44 @@ class KLIEPDensityRatioEstimator:
             self._sigma = self.sigmas[0]
             self._num_parameters = self.num_params[0]
             # best sigma
-        self._j = self._fit(X_train=X_train, X_test=X_test_shuffled, num_parameters=self._num_parameters, sigma=self._sigma)
+        self._j = self._fit(X_top=X_top_shuffled, X_bot=X_bot, 
+                            num_parameters=self._num_parameters, sigma=self._sigma)
 
         return self  # Compatibility with sklearn
 
-    def _fit(self, X_train, X_test, num_parameters, sigma, alpha_0=None):
+    def _fit(self, X_top, X_bot, num_parameters, sigma, alpha_0=None):
         """ Fits the estimator with the given parameters w-hat and returns J"""
 
         num_parameters = num_parameters
 
         if type(num_parameters) == float:
-            num_parameters = int(X_test.shape[0] * num_parameters)
+            num_parameters = int(X_top.shape[0] * num_parameters)
 
-        self._select_param_vectors(X_test=X_test,
+        self._select_param_vectors(X_top=X_top,
                                    sigma=sigma,
                                    num_parameters=num_parameters)
 
-        X_train = self._reshape_X(X_train)
-        X_test = self._reshape_X(X_test)
+        X_bot = self._reshape_X(X_bot)
+        X_top = self._reshape_X(X_top)
 
         if alpha_0 is None:
             alpha_0 = np.ones(shape=(num_parameters, 1))/float(num_parameters)
 
-        self._find_alpha(X_train=X_train,
-                         X_test=X_test,
+        self._find_alpha(X_top=X_top,
+                         X_bot=X_bot,
                          num_parameters=num_parameters,
                          epsilon=self.epsilon,
                          alpha_0=alpha_0,
                          sigma=sigma)
 
-        return self._calculate_j(X_test, sigma=sigma)
+        return self._calculate_j(X_top, sigma=sigma)
 
-    def _calculate_j(self, X_test, sigma):
-        return np.log(self.predict(X_test, sigma=sigma)).sum()/X_test.shape[0]
+    def _calculate_j(self, X_top, sigma):
+        return np.log(self.ratio(X_top, sigma=sigma)).sum()/X_top.shape[0]
 
-    def score(self, X_test):
+    def score(self, X_top):
         """ Return the J score, similar to sklearn's API """
-        return self._calculate_j(X_test=X_test, sigma=self._sigma)
+        return self._calculate_j(X_top=X_top, sigma=self._sigma)
 
     @staticmethod
     def _reshape_X(X):
@@ -142,10 +159,10 @@ class KLIEPDensityRatioEstimator:
             return X.reshape((X.shape[0], 1, X.shape[1]))
         return X
 
-    def _select_param_vectors(self, X_test, sigma, num_parameters):
-        """ X_test is the test set. b is the number of parameters. """
-        indices = np.random.choice(X_test.shape[0], size=num_parameters, replace=False)
-        self._test_vectors = X_test[indices, :].copy()
+    def _select_param_vectors(self, X_top, sigma, num_parameters):
+        """ X_top is the test set. b is the number of parameters. """
+        indices = self.rng.choice(X_top.shape[0], size=num_parameters, replace=False)
+        self._test_vectors = X_top[indices, :].copy()
         self._phi_fitted = True
 
     def _phi(self, X, sigma=None):
@@ -157,12 +174,12 @@ class KLIEPDensityRatioEstimator:
             return np.exp(-np.sum((X-self._test_vectors)**2, axis=-1)/(2*sigma**2))
         raise Exception('Phi not fitted.')
 
-    def _find_alpha(self, alpha_0, X_train, X_test, num_parameters, sigma, epsilon):
-        A = np.zeros(shape=(X_test.shape[0], num_parameters))
+    def _find_alpha(self, alpha_0, X_bot, X_top, num_parameters, sigma, epsilon):
+        A = np.zeros(shape=(X_top.shape[0], num_parameters))
         b = np.zeros(shape=(num_parameters, 1))
 
-        A = self._phi(X_test, sigma)
-        b = self._phi(X_train, sigma).sum(axis=0) / X_train.shape[0]
+        A = self._phi(X_top, sigma)
+        b = self._phi(X_bot, sigma).sum(axis=0) / X_bot.shape[0]
         b = b.reshape((num_parameters, 1))
 
         out = alpha_0.copy()
@@ -174,11 +191,3 @@ class KLIEPDensityRatioEstimator:
 
         self._alpha = out
         self._fitted = True
-
-    def predict(self, X, sigma=None):
-        """ Equivalent of w(X) from the original paper."""
-
-        X = self._reshape_X(X)
-        if not self._fitted:
-            raise Exception('Not fitted!')
-        return np.dot(self._phi(X, sigma=sigma), self._alpha).reshape((X.shape[0],))

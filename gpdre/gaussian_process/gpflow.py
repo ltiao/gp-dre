@@ -3,10 +3,9 @@ import numpy as np
 import tensorflow as tf
 import tensorflow_probability as tfp
 
-from gpflow.models import SVGP
-from gpflow.kernels import SquaredExponential
+from gpflow.models import VGP, VGPOpperArchambeau, SVGP
+from gpflow.kernels import Stationary, SquaredExponential
 from gpflow.likelihoods import Bernoulli
-
 from tensorflow.keras import optimizers
 
 from tqdm import trange
@@ -60,35 +59,36 @@ class VariationalGaussianProcessWrapper(tfd.GaussianProcess):
 
 class GaussianProcessClassifier:
 
-    def __init__(self, input_dim, num_inducing_points,
-                 inducing_index_points_initializer,
-                 kernel_cls=SquaredExponential, use_ard=True,
-                 vgp_cls=SVGP, whiten=True, jitter=1e-6, seed=None,
-                 dtype=tf.float64):
+    def __init__(self, input_dim, kernel_cls=SquaredExponential, use_ard=True,
+                 vgp_cls=SVGP, num_inducing_points=None,
+                 inducing_index_points_initializer=None, whiten=True,
+                 jitter=1e-6, seed=None, dtype=tf.float64):
 
-        inducing_index_points_initial = (
-            inducing_index_points_initializer(shape=(num_inducing_points,
-                                                     input_dim), dtype=dtype))
+        # TODO: We only need this check to avoid passing unexpected
+        # `lengthscales` kwarg. The correct thing to do is add
+        # logic to not pass this kwarg for non-stationary kernels...
+        assert issubclass(kernel_cls, Stationary), \
+            "Currently only support stationary kernels."
 
-        # TODO: `use_ard` currently does nothing.
-        # TODO: jitter is currently not propagated to GPFlow. Only used
-        #   subsequently to compute cholesky to instantiate marginal
-        #   distribution.
-        # TODO: support mean function
-        self._vgp = vgp_cls(
-            # data=(observation_index_points, observations),
-            kernel=kernel_cls(),
-            likelihood=Bernoulli(invlink=tf.sigmoid),
-            inducing_variable=inducing_index_points_initial,
-            mean_function=None, whiten=whiten, num_data=None)
+        if input_dim > 1 and use_ard:
+            length_scales = np.ones(input_dim)
+        else:
+            length_scales = 1.0
 
-        # TODO: Support Dense VGP
-        # self._vgp = vgp_cls(
-        #     data=(observation_index_points, observations),
-        #     kernel=kernel,
-        #     likelihood=Bernoulli(invlink=tf.sigmoid),  # TODO: this shouldn't be fixed at this level of abstraction
-        #     mean_function=None)
+        self.kernel = kernel_cls(lengthscales=length_scales)
+        self.likelihood = Bernoulli(invlink=tf.sigmoid)
 
+        if inducing_index_points_initializer is not None:
+            assert num_inducing_points is not None, \
+                "Must specify `input_dim` and `num_inducing_points`."
+            self.inducing_index_points_initial = (
+                inducing_index_points_initializer(
+                    shape=(num_inducing_points, input_dim), dtype=dtype))
+
+        self.whiten = whiten
+        self.vgp_cls = vgp_cls
+
+        self._vgp = None
         self.optimizer = None
 
         self.whiten = whiten
@@ -96,6 +96,9 @@ class GaussianProcessClassifier:
         self.seed = seed
 
     def logit_distribution(self, X, jitter=None):
+
+        assert self._vgp is not None, "Model not yet instantiated! " \
+            "Call `fit` first."
 
         if jitter is None:
             jitter = self.jitter
@@ -106,42 +109,69 @@ class GaussianProcessClassifier:
 
     def compile(self, optimizer, num_samples=None):
 
-        self.optimizer = optimizers.get(optimizer)
+        if isinstance(optimizer, str):
+            self.optimizer = optimizers.get(optimizer)
+        else:
+            self.optimizer = optimizer
+
         # TODO: issue warning that `num_samples` currently has no effect.
         self.num_samples = num_samples
 
     def fit(self, X, y, epochs=1, batch_size=32, shuffle=True, buffer_size=256):
 
-        num_train = len(X)
-        self._vgp.num_data = num_train
+        assert self.optimizer is not None, "optimizer not specified! " \
+            "Call `compile` first."
 
         # TODO(LT): this may not be the most sensible place to do this.
         # Should be done at a higher level of abstraction...
         Y = np.atleast_2d(y).T
+        num_train = len(X)
 
-        @tf.function
-        def train_on_batch(X_batch, y_batch):
+        # TODO: jitter is currently not propagated to GPFlow. Only used
+        #   subsequently to compute cholesky to instantiate marginal
+        #   distribution.
+        # TODO: support mean function
+        if self.vgp_cls in [VGP, VGPOpperArchambeau]:
 
-            variables = self._vgp.trainable_variables
+            self._vgp = self.vgp_cls(
+                data=(X, Y),
+                kernel=self.kernel,
+                likelihood=self.likelihood,
+                mean_function=None)
+            self.optimizer.minimize(self._vgp.training_loss,
+                                    variables=self._vgp.trainable_variables)
 
-            with tf.GradientTape(watch_accessed_variables=False) as tape:
-                tape.watch(variables)
-                loss = self._vgp.training_loss((X_batch, y_batch))
+        elif self.vgp_cls is SVGP:
 
-            gradients = tape.gradient(loss, variables)
-            self.optimizer.apply_gradients(zip(gradients, variables))
+            self._vgp = self.vgp_cls(
+                kernel=self.kernel,
+                likelihood=self.likelihood,
+                inducing_variable=self.inducing_index_points_initial,
+                mean_function=None, whiten=self.whiten, num_data=num_train)
 
-        dataset = tf.data.Dataset.from_tensor_slices((X, Y))
+            @tf.function
+            def train_on_batch(X_batch, y_batch):
 
-        if shuffle:
-            dataset = dataset.shuffle(seed=self.seed, buffer_size=buffer_size)
+                variables = self._vgp.trainable_variables
 
-        dataset = dataset.batch(batch_size, drop_remainder=True)
+                with tf.GradientTape(watch_accessed_variables=False) as tape:
+                    tape.watch(variables)
+                    loss = self._vgp.training_loss((X_batch, y_batch))
 
-        for epoch in trange(epochs):
-            for step, (X_batch, y_batch) in enumerate(dataset):
+                gradients = tape.gradient(loss, variables)
+                self.optimizer.apply_gradients(zip(gradients, variables))
 
-                train_on_batch(X_batch, y_batch)
+            dataset = tf.data.Dataset.from_tensor_slices((X, Y))
+
+            if shuffle:
+                dataset = dataset.shuffle(seed=self.seed, buffer_size=buffer_size)
+
+            dataset = dataset.batch(batch_size, drop_remainder=True)
+
+            for epoch in trange(epochs):
+                for step, (X_batch, y_batch) in enumerate(dataset):
+
+                    train_on_batch(X_batch, y_batch)
 
     # TODO(LT): It might become confusing why these are here for the
     #   GPFlow-based backend engines. Need to streamline class hierachies...
