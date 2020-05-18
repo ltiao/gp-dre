@@ -139,7 +139,7 @@ class GaussianProcessClassifier:
                 likelihood=self.likelihood,
                 mean_function=None)
             self.optimizer.minimize(self._vgp.training_loss,
-                                    variables=self._vgp.trainable_variables)
+                                    self._vgp.trainable_variables)
 
         elif self.vgp_cls is SVGP:
 

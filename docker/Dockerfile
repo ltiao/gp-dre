@@ -13,6 +13,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
         texlive-latex-extra \
         texlive-fonts-recommended \
         texlive-xetex \
+        cm-super \
         dvipng \
         pandoc \
         msttcorefonts \

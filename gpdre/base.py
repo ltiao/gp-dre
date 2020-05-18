@@ -133,9 +133,8 @@ class DensityRatioMarginals(DensityRatioBase):
 
     # TODO(LT): deprecate
     def make_covariate_shift_dataset(self, num_test, num_train,
-                                     class_posterior_fn, seed=None):
-
-        rng = check_random_state(seed)
+                                     class_posterior_fn, threshold=None,
+                                     seed=None):
 
         num_samples = num_test + num_train
         rate = num_test / num_samples
@@ -145,8 +144,13 @@ class DensityRatioMarginals(DensityRatioBase):
         X_train = X_train.squeeze()
         X_test = X_test.squeeze()
 
-        y_train = rng.binomial(n=1, p=class_posterior_fn(*X_train.T).numpy())
-        y_test = rng.binomial(n=1, p=class_posterior_fn(*X_test.T).numpy())
+        if threshold is None:
+            rng = check_random_state(seed)
+            y_train = rng.binomial(n=1, p=class_posterior_fn(*X_train.T).numpy())
+            y_test = rng.binomial(n=1, p=class_posterior_fn(*X_test.T).numpy())
+        else:
+            y_train = (class_posterior_fn(*X_train.T) > threshold).numpy()
+            y_test = (class_posterior_fn(*X_test.T) > threshold).numpy()
 
         return (X_train, y_train), (X_test, y_test)
 

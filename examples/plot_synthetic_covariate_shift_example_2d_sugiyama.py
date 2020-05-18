@@ -35,10 +35,10 @@ optimizer = "adam"
 epochs = 400
 batch_size = 32
 
-C = 5.0
+C = 1.0
 
 seed = 42
-dataset_seed = 24
+dataset_seed = 8888
 
 X2, X1 = np.mgrid[-4:9:200j, -6:8:200j]
 X_grid = np.dstack((X1, X2))
@@ -52,7 +52,8 @@ def class_posterior(x1, x2):
 
 r = SugiyamaKrauledatMuellerDensityRatioMarginals()
 (X_train, y_train), (X_test, y_test) = r.make_covariate_shift_dataset(
-  num_test, num_train, class_posterior_fn=class_posterior, seed=dataset_seed)
+  num_test, num_train, class_posterior_fn=class_posterior, threshold=0.5,
+  seed=dataset_seed)
 X, s = make_classification_dataset(X_test, X_train)
 # %%
 
