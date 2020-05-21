@@ -6,6 +6,7 @@ import pandas as pd
 import tensorflow_probability as tfp
 
 import matplotlib.pyplot as plt
+import matplotlib.gridspec as gridspec
 import seaborn as sns
 
 from gpdre import DensityRatioMarginals, GaussianProcessDensityRatioEstimator
@@ -288,7 +289,8 @@ def main(name, width, aspect, extension, output_dir):
     fig, ax = plt.subplots()
 
     contours = ax.pcolormesh(x, y, ratio_marginal.prob(Y_grid),
-                             vmax=1.0, cmap="Blues")
+                             zorder=-15, vmax=1.0, cmap="Blues")
+    ax.set_rasterization_zorder(-10)
 
     ax.plot(X_grid, r(X_grid), c='k', label=r"$r(x) = \exp{f(x)}$")
 
@@ -311,7 +313,8 @@ def main(name, width, aspect, extension, output_dir):
     fig, ax = plt.subplots()
 
     contours = ax.pcolormesh(x, y, ratio_marginal.prob(Y_grid),
-                             vmax=1.0, cmap="Blues")
+                             zorder=-15, vmax=1.0, cmap="Blues")
+    ax.set_rasterization_zorder(-10)
 
     ax.plot(X_grid, r(X_grid), c='k', label=r"$r(x) = \exp{f(x)}$")
 
@@ -351,6 +354,86 @@ def main(name, width, aspect, extension, output_dir):
 
     for ext in extension:
         fig.savefig(output_path.joinpath(f"prob_{suffix}.{ext}"),
+                    bbox_inches="tight")
+
+    plt.show()
+
+    x0 = -0.5
+    x1 = 0.25
+
+    r0_min, r0_max = 0, 1.55  # 0.21
+    r1_min, r1_max = 0, 1.55
+
+    r_min, r_max = 0.0, 7.5
+
+    Y_grid = np.linspace(r_min, r_max, y_num_points).reshape(-1, 1)
+    x, y = np.meshgrid(X_grid, Y_grid)
+
+    fig = plt.figure(constrained_layout=True)
+    spec = gridspec.GridSpec(ncols=2, nrows=3, figure=fig)
+
+    ax1 = fig.add_subplot(spec[0, 0])
+    ax2 = fig.add_subplot(spec[0, 1], sharey=ax1)
+
+    r0 = gpdre.ratio_distribution(np.float64([[x0]]),
+                                  reinterpreted_batch_ndims=None)
+
+    ax1.plot(Y_grid, r0.prob(Y_grid))
+    ax1.vlines(r(x0).numpy(), r0_min, r0_max, linewidth=1.0)
+    ax1.vlines(r0.mode(), r0_min, r0_max,
+               color="tab:blue", linewidth=1.0)
+    ax1.vlines(r0.mean(), r0_min, r0_max,
+               color="tab:blue", linestyle="--", linewidth=1.0)
+
+    ax1.set_ylabel(r"$q(r_0)$")
+    ax1.set_xlabel(r"$r(x_0)$")
+
+    ax1.set_ylim(r0_min, r0_max)
+
+    r1 = gpdre.ratio_distribution(np.float64([[x1]]),
+                                  reinterpreted_batch_ndims=None)
+    ax2.plot(Y_grid, r1.prob(Y_grid))
+    ax2.vlines(r(x1).numpy(), r1_min, r1_max, linewidth=1.0)
+    ax2.vlines(r1.mode(), r1_min, r1_max,
+               color="tab:blue", linewidth=1.0)
+    ax2.vlines(r1.mean(), r1_min, r1_max,
+               color="tab:blue", linestyle="--", linewidth=1.0)
+
+    ax2.set_ylabel(r"$q(r_1)$")
+    ax2.set_xlabel(r"$r(x_1)$")
+
+    ax2.set_ylim(r1_min, r1_max)
+
+    ax3 = fig.add_subplot(spec[1:, :])
+
+    ax3.vlines(x0, r_min, r_max, color='tab:orange', linewidth=1.0)
+    ax3.vlines(x1, r_min, r_max, color='tab:orange', linewidth=1.0)
+
+    ax3.text(x0 + 0.05, r_max - 0.5, rf"$x_0 = {x0}$", color='tab:orange')
+    ax3.text(x1 + 0.05, r_max - 0.5, rf"$x_1 = {x1}$", color='tab:orange')
+
+    contours = ax3.pcolormesh(x, y, ratio_marginal.prob(Y_grid),
+                              zorder=-15, vmax=1.0, cmap="Blues")
+    ax3.set_rasterization_zorder(-10)
+
+    ax3.plot(X_grid, r(X_grid), c='k', label=r"$r(x) = \exp{f(x)}$")
+
+    ax3.plot(X_grid, ratio_marginal.mode(), c="tab:blue",
+             label="posterior mode")
+    ax3.plot(X_grid, ratio_marginal.mean(), c="tab:blue", linestyle="--",
+             label="posterior mean")
+
+    # fig.colorbar(contours, extend="max", ax=[ax2, ax3])
+
+    ax3.set_xlabel(r"$x$")
+    ax3.set_ylabel(r"$r(x)$")
+
+    ax3.set_ylim(r_min, r_max)
+
+    ax3.legend()
+
+    for ext in extension:
+        fig.savefig(output_path.joinpath(f"teaser_{suffix}.{ext}"),
                     bbox_inches="tight")
 
     plt.show()
