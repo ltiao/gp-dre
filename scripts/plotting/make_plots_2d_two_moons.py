@@ -98,7 +98,7 @@ def main(name, width, aspect, extension, output_dir):
     ax.set_ylim(ymin, ymax)
 
     for ext in extension:
-        fig.savefig(output_path.joinpath(f"dataset.{suffix}.{ext}"),
+        fig.savefig(output_path.joinpath(f"dataset_{suffix}.{ext}"),
                     bbox_inches="tight")
 
     plt.show()
@@ -120,7 +120,7 @@ def main(name, width, aspect, extension, output_dir):
     ax.set_ylabel(r'$x_2$')
 
     for ext in extension:
-        fig.savefig(output_path.joinpath(f"distribution.{suffix}.{ext}"),
+        fig.savefig(output_path.joinpath(f"distribution_{suffix}.{ext}"),
                     bbox_inches="tight")
 
     plt.show()
@@ -144,7 +144,7 @@ def main(name, width, aspect, extension, output_dir):
     ax.set_ylim(ymin, ymax)
 
     for ext in extension:
-        fig.savefig(output_path.joinpath(f"logit.{suffix}.{ext}"),
+        fig.savefig(output_path.joinpath(f"logit_{suffix}.{ext}"),
                     bbox_inches="tight")
 
     plt.show()
@@ -166,7 +166,7 @@ def main(name, width, aspect, extension, output_dir):
     ax.set_ylim(ymin, ymax)
 
     for ext in extension:
-        fig.savefig(output_path.joinpath(f"ratio.{suffix}.{ext}"),
+        fig.savefig(output_path.joinpath(f"ratio_{suffix}.{ext}"),
                     bbox_inches="tight")
 
     plt.show()
@@ -190,7 +190,7 @@ def main(name, width, aspect, extension, output_dir):
     ax.set_ylim(ymin, ymax)
 
     for ext in extension:
-        fig.savefig(output_path.joinpath(f"prob.{suffix}.{ext}"),
+        fig.savefig(output_path.joinpath(f"prob_{suffix}.{ext}"),
                     bbox_inches="tight")
 
     plt.show()
@@ -224,7 +224,7 @@ def main(name, width, aspect, extension, output_dir):
     ax.set_ylim(ymin, ymax)
 
     for ext in extension:
-        fig.savefig(output_path.joinpath(f"svc.uniform.{suffix}.{ext}"),
+        fig.savefig(output_path.joinpath(f"svc_uniform_{suffix}.{ext}"),
                     bbox_inches="tight")
 
     plt.show()
@@ -260,7 +260,7 @@ def main(name, width, aspect, extension, output_dir):
     ax.set_ylim(ymin, ymax)
 
     for ext in extension:
-        fig.savefig(output_path.joinpath(f"svc.exact.{suffix}.{ext}"),
+        fig.savefig(output_path.joinpath(f"svc_exact_{suffix}.{ext}"),
                     bbox_inches="tight")
 
     plt.show()

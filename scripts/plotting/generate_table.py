@@ -14,7 +14,7 @@ from conf import WEIGHT_PRETTY_NAMES
 def main(result, table, value, index, label):
 
     data = pd.read_csv(result, index_col=0)
-    # data = data.assign(error=1.0-data["acc"])
+    data = data.assign(error=1.0-data["acc"])
     data.replace({"weight": WEIGHT_PRETTY_NAMES}, inplace=True)
 
     columns = ["mean", "std"]

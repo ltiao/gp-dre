@@ -26,7 +26,7 @@ def size(width, aspect=GOLDEN_RATIO):
 
 
 WIDTH = 8.0
-OUTPUT_DIR = "logs/figures/"
+OUTPUT_DIR = "figures/"
 
 
 def catplot(data, strip=False, ax=None):
@@ -35,16 +35,16 @@ def catplot(data, strip=False, ax=None):
         ax.gca()
 
     if strip:
-        sns.stripplot(x="nmse", y="dataset_name",
-                      hue="weight", hue_order=WEIGHT_ORDER,
+        sns.stripplot(x="error", y="weight", order=WEIGHT_ORDER,
+                      # hue="weight", hue_order=WEIGHT_ORDER,
                       palette="colorblind", dodge=True, jitter=False,
                       alpha=0.25, zorder=1, data=data, ax=ax)
         ci = None
     else:
         ci = "sd"
 
-    sns.pointplot(x="nmse", y="dataset_name",
-                  hue="weight", hue_order=WEIGHT_ORDER,
+    sns.pointplot(x="error", y="weight", order=WEIGHT_ORDER,
+                  # hue="weight", hue_order=WEIGHT_ORDER,
                   palette="dark", dodge=0.67, join=False, ci=ci,
                   markers='d', scale=0.75, data=data, ax=ax)
 
@@ -56,6 +56,7 @@ def catplot(data, strip=False, ax=None):
     #           loc="lower left", fontsize="xx-small")
 
     ax.set_xlabel("test nmse")
+    ax.set_ylabel("method")
 
 
 @click.command()
@@ -76,7 +77,7 @@ def main(name, result, context, width, aspect, extension, output_dir):
     rc = {
         "figure.figsize": figsize,
         "font.serif": ['Times New Roman'],
-        "text.usetex": False,
+        "text.usetex": True,
     }
 
     sns.set(context=context,
@@ -85,7 +86,7 @@ def main(name, result, context, width, aspect, extension, output_dir):
             font="serif",
             rc=rc)
 
-    output_path = Path(output_dir)
+    output_path = Path(output_dir).joinpath(name)
     output_path.mkdir(parents=True, exist_ok=True)
 
     data = pd.read_csv(result, index_col=0)
@@ -95,10 +96,21 @@ def main(name, result, context, width, aspect, extension, output_dir):
     fig, ax = plt.subplots()
     sns.despine(fig, ax, bottom=True, left=True)
 
-    catplot(data, ax)
+    catplot(data, strip=True, ax=ax)
 
     for ext in extension:
-        fig.savefig(output_path.joinpath(f"{name}_{suffix}.{ext}"),
+        fig.savefig(output_path.joinpath(f"stripplot_{suffix}.{ext}"),
+                    bbox_inches="tight")
+
+    plt.show()
+
+    fig, ax = plt.subplots()
+    sns.despine(fig, ax, bottom=True, left=True)
+
+    catplot(data, strip=False, ax=ax)
+
+    for ext in extension:
+        fig.savefig(output_path.joinpath(f"pointplot_{suffix}.{ext}"),
                     bbox_inches="tight")
 
     plt.show()
