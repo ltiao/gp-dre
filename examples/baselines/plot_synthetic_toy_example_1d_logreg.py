@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """
-RuLSIF on Synthetic 1D Toy Problem
-==================================
+Logistic Regression on Synthetic 1D Toy Problem
+===============================================
 """
 # sphinx_gallery_thumbnail_number = 6
 
@@ -13,8 +13,7 @@ import tensorflow_probability as tfp
 import matplotlib.pyplot as plt
 import seaborn as sns
 
-from gpdre.base import DensityRatioMarginals
-from gpdre.external.rulsif import RuLSIFDensityRatioEstimator
+from gpdre.base import DensityRatioMarginals, LogisticRegressionDensityRatioEstimator
 from gpdre.datasets import make_classification_dataset
 # %%
 
@@ -27,7 +26,7 @@ num_features = 1  # dimensionality
 num_index_points = 512  # nbr of index points
 
 num_seeds = 3
-alphas = np.linspace(0., 1., 5)
+Cs = np.linspace(0.25, 5.0, 5)
 
 dataset_seed = 8888  # set random seed for reproducibility
 
@@ -116,18 +115,17 @@ plt.show()
 
 rows = []
 
-for alpha in alphas:
+for C in Cs:
 
     for seed in range(num_seeds):
 
-        r_rulsif = RuLSIFDensityRatioEstimator(alpha=alpha)
-        r_rulsif.fit(X_p, X_q)
+        r_log_reg = LogisticRegressionDensityRatioEstimator(C=C, seed=seed)
+        r_log_reg.fit(X_p, X_q)
 
-        logit = r_rulsif.logit(X_grid)
-        ratio = r_rulsif.ratio(X_grid)
+        logit = r_log_reg.logit(X_grid)
+        ratio = r_log_reg.ratio(X_grid)
 
-        rows.append(pd.DataFrame(dict(alpha=alpha,
-                                      seed=seed,
+        rows.append(pd.DataFrame(dict(C=C, seed=seed,
                                       x=X_grid.squeeze(),
                                       logit=logit,
                                       ratio=ratio)))
@@ -140,7 +138,7 @@ data
 fig, ax = plt.subplots()
 
 ax.plot(X_grid, r.logit(X_grid), c='k', label=r"$r(x) = \exp{f(x)}$")
-sns.lineplot(x="x", y="logit", hue="alpha",
+sns.lineplot(x="x", y="logit", hue="C",
              units="seed", estimator=None, palette="colorblind",
              alpha=0.6, linewidth=1.0, data=data, ax=ax)
 
@@ -150,7 +148,7 @@ plt.show()
 fig, ax = plt.subplots()
 
 ax.plot(X_grid, r.ratio(X_grid), c='k', label=r"$r(x) = \exp{f(x)}$")
-sns.lineplot(x="x", y="ratio", hue="alpha",
+sns.lineplot(x="x", y="ratio", hue="C",
              units="seed", estimator=None, palette="colorblind",
              alpha=0.6, linewidth=1.0, data=data, ax=ax)
 

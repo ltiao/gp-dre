@@ -12,6 +12,7 @@ from .datasets.base import train_test_split
 from tensorflow.keras.metrics import binary_accuracy
 from tensorflow.keras.initializers import GlorotUniform
 
+from sklearn.linear_model import LogisticRegression
 from sklearn.utils import check_random_state
 
 from abc import ABC, abstractmethod
@@ -189,3 +190,26 @@ class MLPDensityRatioEstimator(DensityRatioBase):
 
         X, y = make_classification_dataset(X_top, X_bot)
         return self.model.evaluate(X, y, *args, **kwargs)
+
+
+class LogisticRegressionDensityRatioEstimator(DensityRatioBase):
+
+    def __init__(self, C=1.0, solver='lbfgs', epochs=100, seed=None,
+                 *args, **kwargs):
+
+        self.model = LogisticRegression(C=C, random_state=seed, solver=solver,
+                                        max_iter=epochs)
+
+    def logit(self, X, y=None):
+
+        return self.model.decision_function(X)
+
+    def fit(self, X_top, X_bot, *args, **kwargs):
+
+        X, y = make_classification_dataset(X_top, X_bot)
+        return self.model.fit(X, y, *args, **kwargs)
+
+    def evaluate(self, X_top, X_bot, *args, **kwargs):
+
+        X, y = make_classification_dataset(X_top, X_bot)
+        return self.model.score(X, y, *args, **kwargs)

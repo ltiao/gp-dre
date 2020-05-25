@@ -112,8 +112,8 @@ def main(name, width, aspect, extension, output_dir):
     ax.set_title(r"Train $p_{\mathrm{tr}}(\mathbf{x})$ and "
                  r"test $p_{\mathrm{te}}(\mathbf{x})$ distributions")
 
-    contours_train = ax.contour(X1, X2, r.bot.prob(X_grid), cmap="Greens")
-    contours_test = ax.contour(X1, X2, r.top.prob(X_grid), cmap="Oranges",
+    contours_train = ax.contour(X1, X2, r.bot.prob(X_grid), cmap="Oranges")
+    contours_test = ax.contour(X1, X2, r.top.prob(X_grid), cmap="Purples",
                                linestyles="--")
 
     contours = ax.contour(X1, X2, class_posterior(X1, X2).numpy(), levels=1, cmap="bone")
@@ -140,7 +140,7 @@ def main(name, width, aspect, extension, output_dir):
                  r"\log p_{\mathrm{te}}(\mathbf{x}) - "
                  r"\log p_{\mathrm{tr}}(\mathbf{x})$")
 
-    contours = ax.contour(X1, X2, r.logit(X_grid).numpy(), cmap="viridis")
+    contours = ax.contour(X1, X2, r.logit(X_grid).numpy(), cmap="PuOr")
 
     fig.colorbar(contours, ax=ax)
     ax.clabel(contours, fmt="%.2f")
@@ -162,7 +162,7 @@ def main(name, width, aspect, extension, output_dir):
 
     ax.set_title(r"$r(\mathbf{x}) = \exp(f(\mathbf{x}))$")
 
-    contours = ax.contour(X1, X2, r.ratio(X_grid).numpy(), cmap="viridis")
+    contours = ax.contour(X1, X2, r.ratio(X_grid).numpy(), cmap="PuOr")
 
     fig.colorbar(contours, ax=ax)
     ax.clabel(contours, fmt="%.2f")
@@ -184,9 +184,9 @@ def main(name, width, aspect, extension, output_dir):
 
     ax.set_title(r"$P(s=1|\mathbf{x}) = \sigma(f(\mathbf{x}))$")
 
-    contours = ax.contour(X1, X2, r.prob(X_grid).numpy(), cmap="viridis")
+    contours = ax.contour(X1, X2, r.prob(X_grid).numpy(), cmap="PuOr")
 
-    ax.scatter(*X.T, c=r.prob(X).numpy(), cmap="viridis", alpha=0.6)
+    ax.scatter(*X.T, c=r.prob(X).numpy(), cmap="PuOr", alpha=0.6)
 
     fig.colorbar(contours, ax=ax)
     ax.clabel(contours, fmt="%.2f")

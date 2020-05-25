@@ -1,21 +1,22 @@
 # -*- coding: utf-8 -*-
 """
-RuLSIF on Synthetic 1D Toy Problem
-==================================
+MLP on Synthetic 1D Toy Problem
+===============================
 """
 # sphinx_gallery_thumbnail_number = 6
 
 import numpy as np
-import pandas as pd
-
+import tensorflow.keras.backend as K
 import tensorflow_probability as tfp
 
+import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
 
-from gpdre.base import DensityRatioMarginals
-from gpdre.external.rulsif import RuLSIFDensityRatioEstimator
+from gpdre.base import DensityRatioMarginals, MLPDensityRatioEstimator
 from gpdre.datasets import make_classification_dataset
+
+K.set_floatx("float64")
 # %%
 
 # shortcuts
@@ -27,7 +28,12 @@ num_features = 1  # dimensionality
 num_index_points = 512  # nbr of index points
 
 num_seeds = 3
-alphas = np.linspace(0., 1., 5)
+num_layers_iter = range(1, 4)
+num_units_log2_iter = range(3, 6)
+
+optimizer = "adam"
+epochs = 100
+batch_size = 64
 
 dataset_seed = 8888  # set random seed for reproducibility
 
@@ -116,21 +122,29 @@ plt.show()
 
 rows = []
 
-for alpha in alphas:
+for num_layers in num_layers_iter:
 
-    for seed in range(num_seeds):
+    for num_units_log2 in num_units_log2_iter:
 
-        r_rulsif = RuLSIFDensityRatioEstimator(alpha=alpha)
-        r_rulsif.fit(X_p, X_q)
+        num_units = 1 << num_units_log2
 
-        logit = r_rulsif.logit(X_grid)
-        ratio = r_rulsif.ratio(X_grid)
+        for seed in range(num_seeds):
 
-        rows.append(pd.DataFrame(dict(alpha=alpha,
-                                      seed=seed,
-                                      x=X_grid.squeeze(),
-                                      logit=logit,
-                                      ratio=ratio)))
+            r_mlp = MLPDensityRatioEstimator(num_layers=num_layers,
+                                             num_units=num_units,
+                                             activation="relu", seed=seed)
+            r_mlp.compile(optimizer=optimizer, metrics=["accuracy"])
+            r_mlp.fit(X_p, X_q, epochs=epochs, batch_size=batch_size)
+
+            logit = r_mlp.logit(X_grid)
+            ratio = r_mlp.ratio(X_grid)
+
+            rows.append(pd.DataFrame(dict(num_layers=num_layers,
+                                          num_units=num_units,
+                                          seed=seed,
+                                          x=X_grid.squeeze(),
+                                          logit=logit,
+                                          ratio=ratio)))
 # %%
 
 data = pd.concat(rows, axis="index", sort=True)
@@ -140,7 +154,7 @@ data
 fig, ax = plt.subplots()
 
 ax.plot(X_grid, r.logit(X_grid), c='k', label=r"$r(x) = \exp{f(x)}$")
-sns.lineplot(x="x", y="logit", hue="alpha",
+sns.lineplot(x="x", y="logit", hue="num_layers", size="num_units",
              units="seed", estimator=None, palette="colorblind",
              alpha=0.6, linewidth=1.0, data=data, ax=ax)
 
@@ -150,7 +164,7 @@ plt.show()
 fig, ax = plt.subplots()
 
 ax.plot(X_grid, r.ratio(X_grid), c='k', label=r"$r(x) = \exp{f(x)}$")
-sns.lineplot(x="x", y="ratio", hue="alpha",
+sns.lineplot(x="x", y="ratio", hue="num_layers", size="num_units",
              units="seed", estimator=None, palette="colorblind",
              alpha=0.6, linewidth=1.0, data=data, ax=ax)
 

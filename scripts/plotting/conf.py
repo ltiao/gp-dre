@@ -1,25 +1,36 @@
 WEIGHT_PRETTY_NAMES = {
     'uniform': "Uniform",
     'exact': "Exact",
-    'gp_mean': "LGP (mean)",
-    # 'gp_mode': "GP mode",
-    # 'median': "GP median",
+    'mean': "LGP (mean)",
+    'mode': "LGP (mode)",
+    'median': "LGP (median)",
     # 'sample': "GP sampling",
     'rulsif': "RuLSIF",
     'kliep': "KLIEP",
-    'logreg_linear': "LogReg",
-    'logreg_deep': "MLP",
+    'logreg': "LogReg",
+    'mlp': "MLP",
 }
 
 WEIGHT_ORDER = [
     'Uniform',
     'Exact',
     'LGP (mean)',
-    # 'GP mode',
-    # 'GP median',
+    'LGP (mode)',
+    'LGP (median)',
     # 'GP sampling',
     'RuLSIF',
     'KLIEP',
     'LogReg',
     'MLP'
 ]
+
+DATASET_PRETTY_NAMES = {
+    "abalone": r"\textsc{abalone}",
+    "ailerons": r"\textsc{ailerons}",
+    "bank32": r"\textsc{bank32nh}",
+    "bank8": r"\textsc{bank8fm}",
+    "cali": r"\textsc{california}",
+    "cpuact": r"\textsc{cpu-act}",
+    "elevators": r"\textsc{elevators}",
+    "puma8": r"\textsc{puma8nh}"
+}

@@ -5,10 +5,11 @@ import numpy as np
 import pandas as pd
 
 import matplotlib.pyplot as plt
+import matplotlib.ticker as mtick
 import seaborn as sns
 
 from pathlib import Path
-from conf import WEIGHT_PRETTY_NAMES, WEIGHT_ORDER
+from conf import DATASET_PRETTY_NAMES, WEIGHT_PRETTY_NAMES, WEIGHT_ORDER
 
 GOLDEN_RATIO = 0.5 * (1 + np.sqrt(5))
 
@@ -29,33 +30,37 @@ WIDTH = 8.0
 OUTPUT_DIR = "figures/"
 
 
-def catplot(data, strip=False, ax=None):
+def catplot(data, x="error", strip=False, weight_order=WEIGHT_ORDER,
+            xlabel="test nmse", ax=None):
 
     if ax is None:
         ax.gca()
 
+    palette = "colorblind"
+
     if strip:
-        sns.stripplot(x="error", y="weight", order=WEIGHT_ORDER,
-                      # hue="weight", hue_order=WEIGHT_ORDER,
-                      palette="colorblind", dodge=True, jitter=False,
+        sns.stripplot(x=x, y="weight", order=weight_order,
+                      # hue="weight", hue_order=weight_order,
+                      palette=palette, dodge=True, jitter=False,
                       alpha=0.25, zorder=1, data=data, ax=ax)
         ci = None
+        palette = "dark"
     else:
-        ci = "sd"
+        ci = 95
 
-    sns.pointplot(x="error", y="weight", order=WEIGHT_ORDER,
-                  # hue="weight", hue_order=WEIGHT_ORDER,
-                  palette="dark", dodge=0.67, join=False, ci=ci,
+    sns.pointplot(x=x, y="weight", order=weight_order,
+                  # hue="weight", hue_order=weight_order,
+                  palette=palette, dodge=0.67, join=False, ci=ci,
                   markers='d', scale=0.75, data=data, ax=ax)
 
-    # Improve the legend
+    # # Improve the legend
     # handles, labels = ax.get_legend_handles_labels()
-    # ax.legend(handles, labels,
+    # ax.legend(handles[7:], labels[7:],
     #           title=None, handletextpad=0, columnspacing=1,
     #           ncol=4, frameon=True, bbox_to_anchor=(0.0, 1.05),
     #           loc="lower left", fontsize="xx-small")
 
-    ax.set_xlabel("test nmse")
+    ax.set_xlabel(xlabel)
     ax.set_ylabel("method")
 
 
@@ -89,31 +94,61 @@ def main(name, result, context, width, aspect, extension, output_dir):
     output_path = Path(output_dir).joinpath(name)
     output_path.mkdir(parents=True, exist_ok=True)
 
+    baseline = "uniform"
+
     data = pd.read_csv(result, index_col=0)
-    # data = data.assign(error=1.0-data["acc"])
-    data.replace({"weight": WEIGHT_PRETTY_NAMES}, inplace=True)
 
-    fig, ax = plt.subplots()
-    sns.despine(fig, ax, bottom=True, left=True)
+    data = data.assign(error=1.0-data["acc"])
+    data.drop(columns=["dataset_seed", "acc"], inplace=True)
+    # data.replace({"name": DATASET_PRETTY_NAMES}, inplace=True)
 
-    catplot(data, strip=True, ax=ax)
+    for strip in [False, True]:
 
-    for ext in extension:
-        fig.savefig(output_path.joinpath(f"stripplot_{suffix}.{ext}"),
-                    bbox_inches="tight")
+        kind = "strip" if strip else "point"
 
-    plt.show()
+        fig, ax = plt.subplots()
+        sns.despine(fig, ax, bottom=True, left=True)
 
-    fig, ax = plt.subplots()
-    sns.despine(fig, ax, bottom=True, left=True)
+        catplot(data.replace({"weight": WEIGHT_PRETTY_NAMES}),
+                strip=strip, ax=ax)
 
-    catplot(data, strip=False, ax=ax)
+        for ext in extension:
+            fig.savefig(output_path.joinpath(f"abs_{kind}_{suffix}.{ext}"),
+                        bbox_inches="tight")
 
-    for ext in extension:
-        fig.savefig(output_path.joinpath(f"pointplot_{suffix}.{ext}"),
-                    bbox_inches="tight")
+        plt.show()
 
-    plt.show()
+    data.set_index(["weight", "seed"], inplace=True)
+    data_baseline = data.query(f"weight == '{baseline}'") \
+                        .reset_index(level="weight", drop=True)
+
+    data_rel = data.divide(data_baseline, axis="index", level="seed") \
+                   .rename(columns={"error": "error_relative"})
+    data_rel = data_rel.assign(error_relative_change=1.0 - data_rel.error_relative)
+
+    data_new = pd.concat([data, data_rel], axis="columns", join="inner") \
+                 .reset_index()
+    # .drop(index=baseline, level="weight") \
+
+    for strip in [False, True]:
+
+        kind = "strip" if strip else "point"
+
+        fig, ax = plt.subplots()
+        sns.despine(fig, ax, bottom=True, left=True)
+
+        catplot(data_new.replace({"weight": WEIGHT_PRETTY_NAMES}),
+                x="error_relative_change", strip=strip,
+                weight_order=WEIGHT_ORDER[1:],
+                xlabel="test error rate (relative improvement)", ax=ax)
+
+        ax.xaxis.set_major_formatter(mtick.PercentFormatter(xmax=1.0))
+
+        for ext in extension:
+            fig.savefig(output_path.joinpath(f"rel_{kind}_{suffix}.{ext}"),
+                        bbox_inches="tight")
+
+        plt.show()
 
     return 0
 
