@@ -30,7 +30,7 @@ WIDTH = 8.0
 OUTPUT_DIR = "figures/"
 
 
-def catplot(data, x="error", strip=False, weight_order=WEIGHT_ORDER,
+def catplot(data, x="error", kind="strip", weight_order=WEIGHT_ORDER,
             xlabel="test nmse", ax=None):
 
     if ax is None:
@@ -38,20 +38,25 @@ def catplot(data, x="error", strip=False, weight_order=WEIGHT_ORDER,
 
     palette = "colorblind"
 
-    if strip:
-        sns.stripplot(x=x, y="weight", order=weight_order,
-                      # hue="weight", hue_order=weight_order,
-                      palette=palette, dodge=True, jitter=False,
-                      alpha=0.25, zorder=1, data=data, ax=ax)
-        ci = None
-        palette = "dark"
+    if kind == "bar":
+        sns.barplot(x=x, y="weight", order=weight_order,
+                    # hue="weight", hue_order=weight_order,
+                    palette=palette, data=data, ax=ax)
     else:
-        ci = 95
+        if kind == "strip":
+            sns.stripplot(x=x, y="weight", order=weight_order,
+                          # hue="weight", hue_order=weight_order,
+                          palette=palette, dodge=True, jitter=False,
+                          alpha=0.25, zorder=1, data=data, ax=ax)
+            ci = None
+            palette = "dark"
+        else:
+            ci = 95
 
-    sns.pointplot(x=x, y="weight", order=weight_order,
-                  # hue="weight", hue_order=weight_order,
-                  palette=palette, dodge=0.67, join=False, ci=ci,
-                  markers='d', scale=0.75, data=data, ax=ax)
+        sns.pointplot(x=x, y="weight", order=weight_order,
+                      # hue="weight", hue_order=weight_order,
+                      palette=palette, dodge=0.67, join=False, ci=ci,
+                      markers='d', scale=0.75, data=data, ax=ax)
 
     # # Improve the legend
     # handles, labels = ax.get_legend_handles_labels()
@@ -100,17 +105,16 @@ def main(name, result, context, width, aspect, extension, output_dir):
 
     data = data.assign(error=1.0-data["acc"])
     data.drop(columns=["dataset_seed", "acc"], inplace=True)
+    # data.drop(columns="dataset_seed", inplace=True)
     # data.replace({"name": DATASET_PRETTY_NAMES}, inplace=True)
 
-    for strip in [False, True]:
-
-        kind = "strip" if strip else "point"
+    for kind in ["strip", "point", "bar"]:
 
         fig, ax = plt.subplots()
         sns.despine(fig, ax, bottom=True, left=True)
 
         catplot(data.replace({"weight": WEIGHT_PRETTY_NAMES}),
-                strip=strip, ax=ax)
+                kind=kind, ax=ax)
 
         for ext in extension:
             fig.savefig(output_path.joinpath(f"abs_{kind}_{suffix}.{ext}"),
@@ -130,16 +134,15 @@ def main(name, result, context, width, aspect, extension, output_dir):
                  .reset_index()
     # .drop(index=baseline, level="weight") \
 
-    for strip in [False, True]:
-
-        kind = "strip" if strip else "point"
+    for kind in ["strip", "point", "bar"]:
 
         fig, ax = plt.subplots()
         sns.despine(fig, ax, bottom=True, left=True)
 
         catplot(data_new.replace({"weight": WEIGHT_PRETTY_NAMES}),
-                x="error_relative_change", strip=strip,
+                x="error_relative_change", kind=kind,
                 weight_order=WEIGHT_ORDER[1:],
+                # xlabel="test nmse (relative improvement)", ax=ax)
                 xlabel="test error rate (relative improvement)", ax=ax)
 
         ax.xaxis.set_major_formatter(mtick.PercentFormatter(xmax=1.0))

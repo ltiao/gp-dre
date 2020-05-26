@@ -9,9 +9,10 @@ import tensorflow_probability as tfp
 import pandas as pd
 
 from gpdre import GaussianProcessDensityRatioEstimator
-from gpdre.base import MLPDensityRatioEstimator
+from gpdre.base import MLPDensityRatioEstimator, LogisticRegressionDensityRatioEstimator
 from gpdre.external.rulsif import RuLSIFDensityRatioEstimator
 from gpdre.external.kliep import KLIEPDensityRatioEstimator
+from gpdre.external.kmm import KMMDensityRatioEstimator
 from gpdre.datasets import make_classification_dataset
 from gpdre.metrics import normalized_mean_squared_error
 from gpdre.initializers import KMeans
@@ -32,7 +33,7 @@ tfd = tfp.distributions
 num_inducing_points = 300
 
 optimizer = "adam"
-epochs = 400
+epochs = 1000
 batch_size = 100
 buffer_size = 1000
 jitter = 1e-6
@@ -143,11 +144,18 @@ def main(myname, summary_dir, seed):
             #                           sample_weight=sample_weight)
             # rows.append(dict(weight="kliep", name=name, split=split, error=error))
 
+            # KMM
+            r_kmm = KMMDensityRatioEstimator(B=1000.0)
+            r_kmm.fit(X_test, X_train)
+            sample_weight = np.maximum(1e-6, r_kmm.ratio(X_train))
+            error = regression_metric(X_train, y_train, X_test, y_test,
+                                      sample_weight=sample_weight)
+            rows.append(dict(weight="kmm", name=name, split=split, error=error))
+
             # Logistic Regression (Linear)
-            r_linear = MLPDensityRatioEstimator(num_layers=0, num_units=None, seed=seed)
-            r_linear.compile(optimizer=optimizer, metrics=["accuracy"])
-            r_linear.fit(X_test, X_train, epochs=epochs, batch_size=batch_size)
-            sample_weight = np.maximum(1e-6, r_linear.ratio(X_train).numpy())
+            r_logreg = LogisticRegressionDensityRatioEstimator(C=1.0, seed=seed)
+            r_logreg.fit(X_test, X_train)
+            sample_weight = np.maximum(1e-6, r_logreg.ratio(X_train).numpy())
             error = regression_metric(X_train, y_train, X_test, y_test,
                                       sample_weight=sample_weight)
             rows.append(dict(weight="logreg", name=name, split=split, error=error))

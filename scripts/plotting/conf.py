@@ -9,6 +9,7 @@ WEIGHT_PRETTY_NAMES = {
     'kliep': "KLIEP",
     'logreg': "LogReg",
     'mlp': "MLP",
+    'kmm': "KMM"
 }
 
 WEIGHT_ORDER = [
@@ -18,8 +19,9 @@ WEIGHT_ORDER = [
     'LGP (mode)',
     'LGP (median)',
     # 'GP sampling',
-    'RuLSIF',
+    'KMM',
     'KLIEP',
+    'RuLSIF',
     'LogReg',
     'MLP'
 ]

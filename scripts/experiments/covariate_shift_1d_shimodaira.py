@@ -12,6 +12,7 @@ from gpdre import DensityRatioMarginals, GaussianProcessDensityRatioEstimator
 from gpdre.base import MLPDensityRatioEstimator, LogisticRegressionDensityRatioEstimator
 from gpdre.external.rulsif import RuLSIFDensityRatioEstimator
 from gpdre.external.kliep import KLIEPDensityRatioEstimator
+from gpdre.external.kmm import KMMDensityRatioEstimator
 from gpdre.metrics import normalized_mean_squared_error
 
 from gpflow.models import VGP
@@ -86,81 +87,90 @@ def main(name, summary_dir, seed):
 
     rows = []
 
-    for dataset_seed in range(9):
+    # for dataset_seed in range(9):
 
-        (X_train, y_train), (X_test, y_test) = r.make_regression_dataset(
-            num_test, num_train, latent_fn=poly,
-            noise_scale=0.3, seed=dataset_seed)
+    (X_train, y_train), (X_test, y_test) = r.make_regression_dataset(
+        num_test, num_train, latent_fn=poly,
+        noise_scale=0.3, seed=dataset_seed)
 
-        for seed in range(num_seeds):
+    for seed in range(num_seeds):
 
-            # Uniform
-            error = metric(X_train, y_train, X_test, y_test, random_state=seed)
-            rows.append(dict(weight="uniform", error=error,
-                             dataset_seed=dataset_seed, seed=seed))
+        # Uniform
+        error = metric(X_train, y_train, X_test, y_test, random_state=seed)
+        rows.append(dict(weight="uniform", error=error,
+                         dataset_seed=dataset_seed, seed=seed))
 
-            # Exact
+        # Exact
+        error = metric(X_train, y_train, X_test, y_test,
+                       sample_weight=r.ratio(X_train).numpy().squeeze(),
+                       random_state=seed)
+        rows.append(dict(weight="exact", error=error,
+                         dataset_seed=dataset_seed, seed=seed))
+
+        # RuLSIF
+        r_rulsif = RuLSIFDensityRatioEstimator(alpha=1e-6)
+        r_rulsif.fit(X_test, X_train)
+        sample_weight = np.maximum(1e-6, r_rulsif.ratio(X_train))
+        error = metric(X_train, y_train, X_test, y_test,
+                       sample_weight=sample_weight, random_state=seed)
+        rows.append(dict(weight="rulsif", error=error,
+                         dataset_seed=dataset_seed, seed=seed))
+
+        # KLIEP
+        r_kliep = KLIEPDensityRatioEstimator(seed=seed)
+        r_kliep.fit(X_test, X_train)
+        sample_weight = np.maximum(1e-6, r_kliep.ratio(X_train))
+        error = metric(X_train, y_train, X_test, y_test,
+                       sample_weight=sample_weight, random_state=seed)
+        rows.append(dict(weight="kliep", error=error,
+                         dataset_seed=dataset_seed, seed=seed))
+
+        # KMM
+        r_kmm = KMMDensityRatioEstimator(B=1000.0)
+        r_kmm.fit(X_test, X_train)
+        sample_weight = np.maximum(1e-6, r_kmm.ratio(X_train))
+        error = metric(X_train, y_train, X_test, y_test,
+                       sample_weight=sample_weight, random_state=seed)
+        rows.append(dict(weight="kmm", error=error,
+                         dataset_seed=dataset_seed, seed=seed))
+
+        # Logistic Regression (Linear)
+        r_logreg = LogisticRegressionDensityRatioEstimator(C=0.1, seed=seed)
+        r_logreg.fit(X_test, X_train)
+        sample_weight = np.maximum(1e-6, r_logreg.ratio(X_train).numpy())
+        error = metric(X_train, y_train, X_test, y_test,
+                       sample_weight=sample_weight, random_state=seed)
+        rows.append(dict(weight="logreg", error=error,
+                         dataset_seed=dataset_seed, seed=seed))
+
+        # Logistic Regression (MLP)
+        r_mlp = MLPDensityRatioEstimator(num_layers=2, num_units=16,
+                                         activation="relu", seed=seed)
+        r_mlp.compile(optimizer="adam", metrics=["accuracy"])
+        r_mlp.fit(X_test, X_train, epochs=200, batch_size=64)
+        sample_weight = np.maximum(1e-6, r_mlp.ratio(X_train).numpy())
+        error = metric(X_train, y_train, X_test, y_test,
+                       sample_weight=sample_weight, random_state=seed)
+        rows.append(dict(weight="mlp", error=error,
+                         dataset_seed=dataset_seed, seed=seed))
+
+        # Gaussian Processes
+        gpdre = GaussianProcessDensityRatioEstimator(
+            input_dim=num_features,
+            kernel_cls=kernel_cls,
+            vgp_cls=VGP,
+            jitter=jitter,
+            seed=seed)
+        gpdre.compile(optimizer=optimizer)
+        gpdre.fit(X_test, X_train)
+
+        for prop_name, prop in props.items():
+
+            r_prop = gpdre.ratio(X_train, convert_to_tensor_fn=prop)
             error = metric(X_train, y_train, X_test, y_test,
-                           sample_weight=r.ratio(X_train).numpy().squeeze(),
-                           random_state=seed)
-            rows.append(dict(weight="exact", error=error,
+                           sample_weight=r_prop.numpy(), random_state=seed)
+            rows.append(dict(weight=f"{prop_name}", error=error,
                              dataset_seed=dataset_seed, seed=seed))
-
-            # RuLSIF
-            r_rulsif = RuLSIFDensityRatioEstimator(alpha=1e-6)
-            r_rulsif.fit(X_test, X_train)
-            sample_weight = np.maximum(1e-6, r_rulsif.ratio(X_train))
-            error = metric(X_train, y_train, X_test, y_test,
-                           sample_weight=sample_weight, random_state=seed)
-            rows.append(dict(weight="rulsif", error=error,
-                             dataset_seed=dataset_seed, seed=seed))
-
-            # KLIEP
-            r_kliep = KLIEPDensityRatioEstimator(seed=seed)
-            r_kliep.fit(X_test, X_train)
-            sample_weight = np.maximum(1e-6, r_kliep.ratio(X_train))
-            error = metric(X_train, y_train, X_test, y_test,
-                           sample_weight=sample_weight, random_state=seed)
-            rows.append(dict(weight="kliep", error=error,
-                             dataset_seed=dataset_seed, seed=seed))
-
-            # Logistic Regression (Linear)
-            r_logreg = LogisticRegressionDensityRatioEstimator(C=0.1, seed=seed)
-            r_logreg.fit(X_test, X_train)
-            sample_weight = np.maximum(1e-6, r_logreg.ratio(X_train).numpy())
-            error = metric(X_train, y_train, X_test, y_test,
-                           sample_weight=sample_weight, random_state=seed)
-            rows.append(dict(weight="logreg", error=error,
-                             dataset_seed=dataset_seed, seed=seed))
-
-            # Logistic Regression (MLP)
-            r_mlp = MLPDensityRatioEstimator(num_layers=2, num_units=16,
-                                             activation="relu", seed=seed)
-            r_mlp.compile(optimizer="adam", metrics=["accuracy"])
-            r_mlp.fit(X_test, X_train, epochs=200, batch_size=64)
-            sample_weight = np.maximum(1e-6, r_mlp.ratio(X_train).numpy())
-            error = metric(X_train, y_train, X_test, y_test,
-                           sample_weight=sample_weight, random_state=seed)
-            rows.append(dict(weight="mlp", error=error,
-                             dataset_seed=dataset_seed, seed=seed))
-
-            # Gaussian Processes
-            gpdre = GaussianProcessDensityRatioEstimator(
-                input_dim=num_features,
-                kernel_cls=kernel_cls,
-                vgp_cls=VGP,
-                jitter=jitter,
-                seed=seed)
-            gpdre.compile(optimizer=optimizer)
-            gpdre.fit(X_test, X_train)
-
-            for prop_name, prop in props.items():
-
-                r_prop = gpdre.ratio(X_train, convert_to_tensor_fn=prop)
-                error = metric(X_train, y_train, X_test, y_test,
-                               sample_weight=r_prop.numpy(), random_state=seed)
-                rows.append(dict(weight=f"{prop_name}", error=error,
-                                 dataset_seed=dataset_seed, seed=seed))
 
     data = pd.DataFrame(rows)
     data.to_csv(str(summary_path.joinpath(f"{name}.csv")))

@@ -17,8 +17,9 @@ def main(result, table, value, index, label):
 
     data = pd.read_csv(result, index_col=0).set_index(["weight", "seed"])
 
-    # data = data.assign(error=1.0-data["acc"])
-    # data.drop(columns=["dataset_seed", "acc"], inplace=True)
+    data = data.assign(error=1.0-data["acc"])
+    data.drop(columns=["dataset_seed", "acc"], inplace=True)
+    # data.drop(columns="dataset_seed", inplace=True)
 
     data_baseline = data.query(f"weight == '{baseline}'") \
                         .reset_index(level="weight", drop=True)

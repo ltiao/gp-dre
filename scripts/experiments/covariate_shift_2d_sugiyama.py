@@ -15,6 +15,7 @@ from gpdre.datasets import make_classification_dataset
 from gpdre.base import MLPDensityRatioEstimator, LogisticRegressionDensityRatioEstimator
 from gpdre.external.rulsif import RuLSIFDensityRatioEstimator
 from gpdre.external.kliep import KLIEPDensityRatioEstimator
+from gpdre.external.kmm import KMMDensityRatioEstimator
 from gpdre.initializers import KMeans
 
 from gpflow.models import SVGP
@@ -44,7 +45,7 @@ num_test = 500
 num_inducing_points = 300
 
 optimizer = "adam"
-epochs = 250
+epochs = 2000
 batch_size = 100
 buffer_size = 1000
 jitter = 1e-6
@@ -124,6 +125,15 @@ def main(name, summary_dir, seed):
         acc = metric(X_train, y_train, X_test, y_test,
                      sample_weight=sample_weight, random_state=seed)
         rows.append(dict(weight="kliep", acc=acc,
+                         seed=seed, dataset_seed=seed))
+
+        # KMM
+        r_kmm = KMMDensityRatioEstimator(B=1000.0)
+        r_kmm.fit(X_test, X_train)
+        sample_weight = np.maximum(1e-6, r_kmm.ratio(X_train))
+        acc = metric(X_train, y_train, X_test, y_test,
+                     sample_weight=sample_weight, random_state=seed)
+        rows.append(dict(weight="kmm", acc=acc,
                          seed=seed, dataset_seed=seed))
 
         # Logistic Regression (Linear)
