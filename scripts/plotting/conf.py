@@ -9,7 +9,10 @@ WEIGHT_PRETTY_NAMES = {
     'kliep': "KLIEP",
     'logreg': "LogReg",
     'mlp': "MLP",
-    'kmm': "KMM"
+    'kmm': "KMM",
+    'ones': "Uniform",
+    'ideal': "Exact",
+    'cov': "KMM"
 }
 
 WEIGHT_ORDER = [

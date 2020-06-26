@@ -119,7 +119,9 @@ def main(name, summary_dir, seed):
                          seed=seed, dataset_seed=seed))
 
         # KLIEP
-        r_kliep = KLIEPDensityRatioEstimator(seed=seed)
+        # sigmas = [0.1, 0.25, 0.5, 0.75, 1.0]
+        sigmas = list(np.maximum(0.25 * np.arange(5), 0.1))
+        r_kliep = KLIEPDensityRatioEstimator(sigmas=sigmas, seed=seed)
         r_kliep.fit(X_test, X_train)
         sample_weight = np.maximum(1e-6, r_kliep.ratio(X_train))
         acc = metric(X_train, y_train, X_test, y_test,
@@ -137,7 +139,7 @@ def main(name, summary_dir, seed):
                          seed=seed, dataset_seed=seed))
 
         # Logistic Regression (Linear)
-        r_logreg = LogisticRegressionDensityRatioEstimator(C=1.0, seed=seed)
+        r_logreg = LogisticRegressionDensityRatioEstimator(seed=seed)
         r_logreg.fit(X_test, X_train)
         sample_weight = np.maximum(1e-6, r_logreg.ratio(X_train).numpy())
         acc = metric(X_train, y_train, X_test, y_test,

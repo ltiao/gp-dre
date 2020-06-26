@@ -10,6 +10,10 @@ import matplotlib.gridspec as gridspec
 import seaborn as sns
 
 from gpdre import DensityRatioMarginals, GaussianProcessDensityRatioEstimator
+from gpdre.base import LogisticRegressionDensityRatioEstimator
+from gpdre.external.rulsif import RuLSIFDensityRatioEstimator
+from gpdre.external.kliep import KLIEPDensityRatioEstimator
+from gpdre.external.kmm import KMMDensityRatioEstimator
 from gpdre.datasets import make_classification_dataset
 from gpdre.plotting import fill_between_stddev
 
@@ -29,7 +33,7 @@ WIDTH = 397.48499
 OUTPUT_DIR = "logs/figures/"
 
 SEED = 8888
-DATASET_SEED = 24
+DATASET_SEED = 0
 NUM_TRAIN = 100
 NUM_TEST = 100
 
@@ -103,8 +107,8 @@ def main(name, width, aspect, extension, output_dir):
     # Figure 2
     fig, ax = plt.subplots()
 
-    ax.plot(X_grid, r.bot.prob(X_grid), label=r"$p_{\mathrm{tr}}(\mathbf{x})$")
-    ax.plot(X_grid, r.top.prob(X_grid), label=r"$p_{\mathrm{te}}(\mathbf{x})$")
+    ax.plot(X_grid, r.bot.prob(X_grid), c="tab:orange", label=r"$p_{\mathrm{tr}}(\mathbf{x})$")
+    ax.plot(X_grid, r.top.prob(X_grid), c="tab:purple", label=r"$p_{\mathrm{te}}(\mathbf{x})$")
 
     ax.set_xlabel('$x$')
     ax.set_ylabel('density')
@@ -146,54 +150,6 @@ def main(name, width, aspect, extension, output_dir):
 
     for ext in extension:
         fig.savefig(output_path.joinpath(f"ratio_{suffix}.{ext}"),
-                    bbox_inches="tight")
-
-    plt.show()
-
-    model_uniform_train = LinearRegression().fit(X_train, y_train)
-    model_uniform_test = LinearRegression().fit(X_test, y_test)
-    model_exact_train = LinearRegression().fit(X_train, y_train,
-                                               sample_weight=r.ratio(X_train) \
-                                                              .numpy().squeeze())
-
-    frames = []
-    frames.append(pd.DataFrame(dict(name="uniform train",
-                                    x=np.squeeze(X_grid, axis=-1),
-                                    y=model_uniform_train.predict(X_grid))))
-    frames.append(pd.DataFrame(dict(name="uniform test",
-                                    x=np.squeeze(X_grid, axis=-1),
-                                    y=model_uniform_test.predict(X_grid))))
-    frames.append(pd.DataFrame(dict(name="exact train",
-                                    x=np.squeeze(X_grid, axis=-1),
-                                    y=model_exact_train.predict(X_grid))))
-    frames.append(pd.DataFrame(dict(name="true",
-                                    x=np.squeeze(X_grid, axis=-1),
-                                    y=np.squeeze(poly(X_grid), axis=-1))))
-    data = pd.concat(frames, axis="index", ignore_index=True, sort=True)
-
-    # Figure 7
-    fig, ax = plt.subplots()
-
-    sns.lineplot(x='x', y='y', hue="name", style="name", data=data, ax=ax)
-
-    ax.scatter(X_train, y_train, alpha=0.6, label="train")
-    ax.scatter(X_test, y_test, marker='x', alpha=0.6, label="test")
-
-    ax.set_xlabel(r'$x$')
-    ax.set_ylabel(r'$y$')
-
-    ax.set_xlim(-0.5, 1.5)
-    ax.set_ylim(-1.0, 1.5)
-
-    ax.legend(loc="upper left")
-
-    handles, labels = ax.get_legend_handles_labels()
-    ax.legend(handles[1:], labels[1:], title=None,
-              handletextpad=0.5, columnspacing=1,
-              ncol=2, frameon=True, loc="upper left")
-
-    for ext in extension:
-        fig.savefig(output_path.joinpath(f"dataset_{suffix}.{ext}"),
                     bbox_inches="tight")
 
     plt.show()
@@ -307,7 +263,9 @@ def main(name, width, aspect, extension, output_dir):
 
     plt.show()
 
-    Y_grid = np.linspace(0.0, 7.5, y_num_points).reshape(-1, 1)
+    r_min, r_max = 0.0, 7.5
+
+    Y_grid = np.linspace(r_min, r_max, y_num_points).reshape(-1, 1)
     x, y = np.meshgrid(X_grid, Y_grid)
 
     fig, ax = plt.subplots()
@@ -319,16 +277,18 @@ def main(name, width, aspect, extension, output_dir):
     ax.plot(X_grid, r(X_grid), c='k', label=r"$r(x) = \exp{f(x)}$")
 
     ax.plot(X_grid, ratio_marginal.mode(), c="tab:blue",
-            label="transformed posterior mode")
+            label="posterior mode")
     ax.plot(X_grid, ratio_marginal.mean(), c="tab:blue", linestyle="--",
-            label="transformed posterior mean")
+            label="posterior mean")
+    ax.plot(X_grid, gpdre.ratio(X_grid, convert_to_tensor_fn=lambda d: d.distribution.quantile(0.5)),
+            c="tab:blue", linestyle=':', label="posterior median")
 
     fig.colorbar(contours, extend="max", ax=ax)
 
     ax.set_xlabel(r"$x$")
     ax.set_ylabel(r"$r(x)$")
 
-    ax.set_ylim(0.0, 7.5)
+    ax.set_ylim(r_min, r_max)
 
     ax.legend()
 
@@ -345,7 +305,7 @@ def main(name, width, aspect, extension, output_dir):
             color="tab:blue", linewidth=0.4, alpha=0.6)
     ax.plot(X_grid, r.prob(X_grid), c='k',
             label=r"$\pi(x) = \sigma(f(x))$")
-    ax.scatter(X, s, c=s, s=12.**2, marker='s', alpha=0.1, cmap="coolwarm_r")
+    ax.scatter(X, s, c=s, s=12.**2, marker='s', alpha=0.1, cmap="PuOr")
     ax.set_yticks([0, 1])
     ax.set_yticklabels([r"$x_q \sim q(x)$", r"$x_p \sim p(x)$"])
     ax.set_xlabel('$x$')
@@ -363,8 +323,6 @@ def main(name, width, aspect, extension, output_dir):
 
     r0_min, r0_max = 0, 1.55  # 0.21
     r1_min, r1_max = 0, 1.55
-
-    r_min, r_max = 0.0, 7.5
 
     Y_grid = np.linspace(r_min, r_max, y_num_points).reshape(-1, 1)
     x, y = np.meshgrid(X_grid, Y_grid)
@@ -438,6 +396,93 @@ def main(name, width, aspect, extension, output_dir):
 
     plt.show()
 
+    # Baselines
+    r_kliep = KLIEPDensityRatioEstimator(seed=SEED)
+    r_kliep.fit(X_test, X_train)
+
+    r_rulsif = RuLSIFDensityRatioEstimator(alpha=1e-2)
+    r_rulsif.fit(X_test, X_train)
+
+    r_kmm = KMMDensityRatioEstimator(B=1000.0)
+    r_kmm.fit(X_test, X_train)
+
+    r_logreg = LogisticRegressionDensityRatioEstimator(Cs=[0.7], seed=SEED)
+    r_logreg.fit(X_test, X_train)
+
+    fig, ax = plt.subplots()
+
+    ax.plot(X_grid, r(X_grid), c='k', label=r"$r(x) = \exp{f(x)}$")
+    ax.plot(X_grid, r_kliep.ratio(X_grid), label="KLIEP")
+    ax.plot(X_grid, r_rulsif.ratio(X_grid), label="RuLSIF")
+    ax.plot(X_grid, r_logreg.ratio(X_grid), label="LogReg")
+
+    ax.scatter(X_train, r_kmm.ratio(X_train), alpha=0.6, label="KMM")
+
+    ax.set_xlabel(r"$x$")
+    ax.set_ylabel(r"$r(x)$")
+    ax.set_ylim(r_min, r_max)
+
+    ax.legend()
+
+    for ext in extension:
+        fig.savefig(output_path.joinpath(f"ratio_baselines_{suffix}.{ext}"),
+                    bbox_inches="tight")
+
+    plt.show()
+
+    model_uniform_train = LinearRegression().fit(X_train, y_train)
+    model_uniform_test = LinearRegression().fit(X_test, y_test)
+    model_exact_train = LinearRegression().fit(X_train, y_train,
+                                               sample_weight=r.ratio(X_train) \
+                                                              .numpy().squeeze())
+    sample_weight = gpdre.ratio(X_train, convert_to_tensor_fn=tfd.Distribution.mode).numpy().squeeze()
+    model_mode_train = LinearRegression().fit(X_train, y_train,
+                                              sample_weight=sample_weight)
+
+    frames = []
+    frames.append(pd.DataFrame(dict(name="training (unweighted)",
+                                    x=np.squeeze(X_grid, axis=-1),
+                                    y=model_uniform_train.predict(X_grid))))
+    frames.append(pd.DataFrame(dict(name="test (unweighted)",
+                                    x=np.squeeze(X_grid, axis=-1),
+                                    y=model_uniform_test.predict(X_grid))))
+    frames.append(pd.DataFrame(dict(name="training (exact)",
+                                    x=np.squeeze(X_grid, axis=-1),
+                                    y=model_exact_train.predict(X_grid))))
+    frames.append(pd.DataFrame(dict(name="training (LGP mode)",
+                                    x=np.squeeze(X_grid, axis=-1),
+                                    y=model_mode_train.predict(X_grid))))
+    frames.append(pd.DataFrame(dict(name="true",
+                                    x=np.squeeze(X_grid, axis=-1),
+                                    y=np.squeeze(poly(X_grid), axis=-1))))
+    data = pd.concat(frames, axis="index", ignore_index=True, sort=True)
+
+    # Figure 7
+    fig, ax = plt.subplots()
+
+    sns.lineplot(x='x', y='y', hue="name", style="name", data=data, ax=ax)
+
+    ax.scatter(X_train, y_train, alpha=0.6, label="training")
+    ax.scatter(X_test, y_test, marker='x', alpha=0.6, label="test")
+
+    ax.set_xlabel(r'$x$')
+    ax.set_ylabel(r'$y$')
+
+    ax.set_xlim(-0.5, 1.5)
+    ax.set_ylim(-1.0, 1.5)
+
+    ax.legend(loc="upper left")
+
+    handles, labels = ax.get_legend_handles_labels()
+    ax.legend(handles[1:], labels[1:], title=None,  # fontsize="small",
+              handletextpad=0.5, columnspacing=1,
+              ncol=2, frameon=True, loc="upper left")
+
+    for ext in extension:
+        fig.savefig(output_path.joinpath(f"dataset_{suffix}.{ext}"),
+                    bbox_inches="tight")
+
+    plt.show()
     return 0
 
 

@@ -58,18 +58,3 @@ def gp_sample_custom(gp, n_samples, seed=None):
     gp_samples = gp_marginal.bijector.forward(base_samples)
 
     return gp_samples
-
-
-# TODO: deprecate
-qs = {
-    "same": tfd.Normal(loc=0.0, scale=1.0),
-    "scale_lesser": tfd.Normal(loc=0.0, scale=0.6),
-    "scale_greater": tfd.Normal(loc=0.0, scale=2.0),
-    "loc_different": tfd.Normal(loc=0.5, scale=1.0),
-    "additive": tfd.MixtureSameFamily(
-        mixture_distribution=tfd.Categorical(probs=[0.95, 0.05]),
-        components_distribution=tfd.Normal(loc=[0.0, 3.0], scale=[1.0, 1.0])),
-    "bimodal": tfd.MixtureSameFamily(
-        mixture_distribution=tfd.Categorical(probs=[0.4, 0.6]),
-        components_distribution=tfd.Normal(loc=[2.0, -3.0], scale=[1.0, 0.5]))
-}

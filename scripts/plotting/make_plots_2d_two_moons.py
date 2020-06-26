@@ -83,48 +83,6 @@ def main(name, width, aspect, extension, output_dir):
     r = DensityRatioMarginals(top=test, bot=train)
     (X_train, y_train), (X_test, y_test) = r.train_test_split(X, y, seed=SEED)
 
-    # Figure 1
-    fig, ax = plt.subplots()
-
-    ax.scatter(*X_train.T, c=y_train, cmap="RdYlBu", alpha=0.8, label="train")
-    ax.scatter(*X_test.T, marker='x', c=y_test, cmap="RdYlBu", alpha=0.2, label="test")
-
-    ax.legend()
-
-    ax.set_xlabel(r'$x_1$')
-    ax.set_ylabel(r'$x_2$')
-
-    ax.set_xlim(xmin, xmax)
-    ax.set_ylim(ymin, ymax)
-
-    for ext in extension:
-        fig.savefig(output_path.joinpath(f"dataset_{suffix}.{ext}"),
-                    bbox_inches="tight")
-
-    plt.show()
-
-    # Figure 2
-    fig, ax = plt.subplots()
-
-    ax.set_title(r"Train $p_{\mathrm{tr}}(\mathbf{x})$ and "
-                 r"test $p_{\mathrm{te}}(\mathbf{x})$ distributions")
-
-    contours_train = ax.contour(X1, X2, r.bot.prob(X_grid), cmap="Greens")
-    contours_test = ax.contour(X1, X2, r.top.prob(X_grid), cmap="Oranges",
-                               linestyles="--")
-
-    ax.clabel(contours_train, fmt="%.2f")
-    ax.clabel(contours_test, fmt="%.2f")
-
-    ax.set_xlabel(r'$x_1$')
-    ax.set_ylabel(r'$x_2$')
-
-    for ext in extension:
-        fig.savefig(output_path.joinpath(f"distribution_{suffix}.{ext}"),
-                    bbox_inches="tight")
-
-    plt.show()
-
     # Figure 3
     fig, ax = plt.subplots()
 
@@ -132,7 +90,7 @@ def main(name, width, aspect, extension, output_dir):
                  r"\log p_{\mathrm{te}}(\mathbf{x}) - "
                  r"\log p_{\mathrm{tr}}(\mathbf{x})$")
 
-    contours = ax.contour(X1, X2, r.logit(X_grid).numpy(), cmap="viridis")
+    contours = ax.contour(X1, X2, r.logit(X_grid).numpy(), cmap="PuOr")
 
     fig.colorbar(contours, ax=ax)
     ax.clabel(contours, fmt="%.2f")
@@ -154,7 +112,7 @@ def main(name, width, aspect, extension, output_dir):
 
     ax.set_title(r"$r(\mathbf{x}) = \exp(f(\mathbf{x}))$")
 
-    contours = ax.contour(X1, X2, r.ratio(X_grid).numpy(), cmap="viridis")
+    contours = ax.contour(X1, X2, r.ratio(X_grid).numpy(), cmap="PuOr")
 
     fig.colorbar(contours, ax=ax)
     ax.clabel(contours, fmt="%.2f")
@@ -176,9 +134,9 @@ def main(name, width, aspect, extension, output_dir):
 
     ax.set_title(r"$P(s=1|\mathbf{x}) = \sigma(f(\mathbf{x}))$")
 
-    contours = ax.contour(X1, X2, r.prob(X_grid).numpy(), cmap="viridis")
+    contours = ax.contour(X1, X2, r.prob(X_grid).numpy(), cmap="PuOr")
 
-    ax.scatter(*X.T, c=r.prob(X).numpy(), cmap="viridis", alpha=0.6)
+    ax.scatter(*X.T, c=r.prob(X).numpy(), cmap="PuOr", alpha=0.6)
 
     fig.colorbar(contours, ax=ax)
     ax.clabel(contours, fmt="%.2f")
@@ -195,19 +153,30 @@ def main(name, width, aspect, extension, output_dir):
 
     plt.show()
 
-    # Figure 7
-    model = SVC(C=1.0, kernel="rbf", gamma="scale", max_iter=-1, probability=True,
-                random_state=SEED)
-    model.fit(X_train, y_train)
-    error = 1 - model.score(X_test, y_test)
-    p_grid = model.predict_proba(X_grid.reshape(-1, 2)) \
-                  .reshape(200, 200, 2)
+    model_uniform_train = SVC(C=1.0, kernel="rbf", gamma="scale", max_iter=-1,
+                              probability=True, random_state=SEED)
+    model_uniform_train.fit(X_train, y_train)
+    model_uniform_test = SVC(C=1.0, kernel="rbf", gamma="scale", max_iter=-1,
+                             probability=True, random_state=SEED)
+    model_uniform_test.fit(X_test, y_test)
+    model_exact_train = SVC(C=1.0, kernel="rbf", gamma="scale", max_iter=-1,
+                            probability=True, random_state=SEED)
+    model_exact_train.fit(X_train, y_train,
+                          sample_weight=r.ratio(X_train).numpy())
 
+    p_grid_uniform_train = model_uniform_train.predict_proba(X_grid.reshape(-1, 2)) \
+                                              .reshape(200, 200, 2)
+    p_grid_uniform_test = model_uniform_test.predict_proba(X_grid.reshape(-1, 2)) \
+                                            .reshape(200, 200, 2)
+    p_grid_exact_train = model_exact_train.predict_proba(X_grid.reshape(-1, 2)) \
+                                          .reshape(200, 200, 2)
+
+    # Figure 7
     fig, ax = plt.subplots()
 
     ax.set_title("Without importance sampling (uniform weights)")
 
-    contours = ax.contour(X1, X2, p_grid[..., -1], cmap="RdYlBu")
+    contours = ax.contour(X1, X2, p_grid_uniform_train[..., -1], cmap="RdYlBu")
 
     fig.colorbar(contours, ax=ax)
     ax.clabel(contours, fmt="%.2f")
@@ -230,18 +199,11 @@ def main(name, width, aspect, extension, output_dir):
     plt.show()
 
     # Figure 8
-    model = SVC(C=1.0, kernel="rbf", gamma="scale", max_iter=-1, probability=True,
-                random_state=SEED)
-    model.fit(X_train, y_train, sample_weight=r.ratio(X_train).numpy())
-    error = 1 - model.score(X_test, y_test)
-    p_grid = model.predict_proba(X_grid.reshape(-1, 2)) \
-                  .reshape(200, 200, 2)
-
     fig, ax = plt.subplots()
 
     ax.set_title("With importance sampling (exact density ratio)")
 
-    contours = ax.contour(X1, X2, p_grid[..., -1], cmap="RdYlBu")
+    contours = ax.contour(X1, X2, p_grid_exact_train[..., -1], cmap="RdYlBu")
 
     fig.colorbar(contours, ax=ax)
     ax.clabel(contours, fmt="%.2f")
@@ -261,6 +223,57 @@ def main(name, width, aspect, extension, output_dir):
 
     for ext in extension:
         fig.savefig(output_path.joinpath(f"svc_exact_{suffix}.{ext}"),
+                    bbox_inches="tight")
+
+    plt.show()
+
+    # Figure 9
+    fig, ax = plt.subplots()
+
+    contours1 = ax.contour(X1, X2, p_grid_uniform_train[..., -1],  linestyles="solid", levels=1, zorder=-1, cmap="Blues")
+    contours2 = ax.contour(X1, X2, p_grid_uniform_test[..., -1],  linestyles="dashed", levels=1, zorder=-1, cmap="Oranges")
+    contours3 = ax.contour(X1, X2, p_grid_exact_train[..., -1],  linestyles="dotted", levels=1, zorder=-1, cmap="Greens")
+
+    # fig.colorbar(contours, ax=ax)
+    # ax.clabel(contours1, fmt="unweighted", fontsize="smaller")
+    # ax.clabel(contours2, fmt="test", fontsize="smaller")
+    # ax.clabel(contours3, fmt="ideal", fontsize="smaller")
+
+    ax.scatter(*X_train.T, c=y_train, cmap="RdYlBu", alpha=0.8, label="train")
+    ax.scatter(*X_test.T, marker='x', c=y_test, cmap="RdYlBu", alpha=0.2, label="test")
+
+    ax.legend()
+
+    ax.set_xlabel(r'$x_1$')
+    ax.set_ylabel(r'$x_2$')
+
+    ax.set_xlim(xmin, xmax)
+    ax.set_ylim(ymin, ymax)
+
+    for ext in extension:
+        fig.savefig(output_path.joinpath(f"dataset_{suffix}.{ext}"),
+                    bbox_inches="tight")
+
+    plt.show()
+
+    # Figure 2
+    fig, ax = plt.subplots()
+
+    # ax.set_title(r"Train $p_{\mathrm{tr}}(\mathbf{x})$ and "
+    #              r"test $p_{\mathrm{te}}(\mathbf{x})$ distributions")
+
+    contours_train = ax.contour(X1, X2, r.bot.prob(X_grid), cmap="Oranges")
+    contours_test = ax.contour(X1, X2, r.top.prob(X_grid), cmap="Purples",
+                               linestyles="--")
+
+    ax.clabel(contours_train, fmt="%.2f")
+    ax.clabel(contours_test, fmt="%.2f")
+
+    ax.set_xlabel(r'$x_1$')
+    ax.set_ylabel(r'$x_2$')
+
+    for ext in extension:
+        fig.savefig(output_path.joinpath(f"distribution_{suffix}.{ext}"),
                     bbox_inches="tight")
 
     plt.show()

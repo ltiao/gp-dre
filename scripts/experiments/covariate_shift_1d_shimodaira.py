@@ -16,7 +16,7 @@ from gpdre.external.kmm import KMMDensityRatioEstimator
 from gpdre.metrics import normalized_mean_squared_error
 
 from gpflow.models import VGP
-from gpflow.kernels import Matern52
+from gpflow.kernels import Matern52, SquaredExponential
 from gpflow.optimizers import Scipy
 
 from sklearn.linear_model import LinearRegression
@@ -44,7 +44,7 @@ optimizer = Scipy()
 
 jitter = 1e-6
 
-num_seeds = 25
+num_seeds = 10
 
 # properties of the distribution
 props = {
@@ -89,11 +89,10 @@ def main(name, summary_dir, seed):
 
     # for dataset_seed in range(9):
 
-    (X_train, y_train), (X_test, y_test) = r.make_regression_dataset(
-        num_test, num_train, latent_fn=poly,
-        noise_scale=0.3, seed=dataset_seed)
-
     for seed in range(num_seeds):
+
+        (X_train, y_train), (X_test, y_test) = r.make_regression_dataset(
+            num_test, num_train, latent_fn=poly, noise_scale=0.3, seed=seed)
 
         # Uniform
         error = metric(X_train, y_train, X_test, y_test, random_state=seed)
@@ -117,7 +116,9 @@ def main(name, summary_dir, seed):
                          dataset_seed=dataset_seed, seed=seed))
 
         # KLIEP
-        r_kliep = KLIEPDensityRatioEstimator(seed=seed)
+        # sigmas = [0.1, 0.25, 0.5, 0.75, 1.0]
+        sigmas = list(np.maximum(0.25 * np.arange(5), 0.1))
+        r_kliep = KLIEPDensityRatioEstimator(sigmas=sigmas, seed=seed)
         r_kliep.fit(X_test, X_train)
         sample_weight = np.maximum(1e-6, r_kliep.ratio(X_train))
         error = metric(X_train, y_train, X_test, y_test,
@@ -135,13 +136,14 @@ def main(name, summary_dir, seed):
                          dataset_seed=dataset_seed, seed=seed))
 
         # Logistic Regression (Linear)
-        r_logreg = LogisticRegressionDensityRatioEstimator(C=0.1, seed=seed)
+        r_logreg = LogisticRegressionDensityRatioEstimator(seed=seed)
         r_logreg.fit(X_test, X_train)
         sample_weight = np.maximum(1e-6, r_logreg.ratio(X_train).numpy())
         error = metric(X_train, y_train, X_test, y_test,
                        sample_weight=sample_weight, random_state=seed)
         rows.append(dict(weight="logreg", error=error,
                          dataset_seed=dataset_seed, seed=seed))
+        # print("Found optimal C={}".format(r_logreg.model.C_))
 
         # Logistic Regression (MLP)
         r_mlp = MLPDensityRatioEstimator(num_layers=2, num_units=16,
@@ -169,7 +171,7 @@ def main(name, summary_dir, seed):
             r_prop = gpdre.ratio(X_train, convert_to_tensor_fn=prop)
             error = metric(X_train, y_train, X_test, y_test,
                            sample_weight=r_prop.numpy(), random_state=seed)
-            rows.append(dict(weight=f"{prop_name}", error=error,
+            rows.append(dict(weight=prop_name, error=error,
                              dataset_seed=dataset_seed, seed=seed))
 
     data = pd.DataFrame(rows)

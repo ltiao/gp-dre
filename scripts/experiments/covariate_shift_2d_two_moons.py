@@ -10,9 +10,10 @@ import tensorflow_probability as tfp
 import pandas as pd
 
 from gpdre import DensityRatioMarginals, GaussianProcessDensityRatioEstimator
-from gpdre.base import MLPDensityRatioEstimator
+from gpdre.base import MLPDensityRatioEstimator, LogisticRegressionDensityRatioEstimator
 from gpdre.external.rulsif import RuLSIFDensityRatioEstimator
 from gpdre.external.kliep import KLIEPDensityRatioEstimator
+from gpdre.external.kmm import KMMDensityRatioEstimator
 from gpdre.initializers import KMeans
 
 from gpflow.models import SVGP
@@ -51,8 +52,8 @@ num_seeds = 10
 # properties of the distribution
 props = {
     "mean": tfd.Distribution.mean,
-    # "mode": tfd.Distribution.mode,
-    # "median": lambda d: d.distribution.quantile(0.5),
+    "mode": tfd.Distribution.mode,
+    "median": lambda d: d.distribution.quantile(0.5),
     # "sample": tfd.Distribution.sample,  # single sample
 }
 
@@ -115,21 +116,31 @@ def main(name, summary_dir, seed):
         rows.append(dict(weight="rulsif", acc=acc, seed=seed))
 
         # KLIEP
-        r_kliep = KLIEPDensityRatioEstimator(seed=seed)
+        # sigmas = [0.1, 0.25, 0.5, 0.75, 1.0]
+        sigmas = list(np.maximum(0.25 * np.arange(5), 0.1))
+        r_kliep = KLIEPDensityRatioEstimator(sigmas=sigmas, seed=seed)
         r_kliep.fit(X_test, X_train)
         sample_weight = np.maximum(1e-6, r_kliep.ratio(X_train))
         acc = metric(X_train, y_train, X_test, y_test,
                      sample_weight=sample_weight, random_state=seed)
         rows.append(dict(weight="kliep", acc=acc, seed=seed))
 
-        # Logistic Regression (Linear)
-        r_linear = MLPDensityRatioEstimator(num_layers=0, num_units=None, seed=seed)
-        r_linear.compile(optimizer=optimizer, metrics=["accuracy"])
-        r_linear.fit(X_test, X_train, epochs=epochs, batch_size=batch_size)
-        sample_weight = np.maximum(1e-6, r_linear.ratio(X_train).numpy())
+        # KMM
+        r_kmm = KMMDensityRatioEstimator(B=1000.0)
+        r_kmm.fit(X_test, X_train)
+        sample_weight = np.maximum(1e-6, r_kmm.ratio(X_train))
         acc = metric(X_train, y_train, X_test, y_test,
                      sample_weight=sample_weight, random_state=seed)
-        rows.append(dict(weight="logreg_linear", acc=acc, seed=seed))
+        rows.append(dict(weight="kmm", acc=acc,
+                         seed=seed, dataset_seed=seed))
+
+        # Logistic Regression (Linear)
+        r_logreg = LogisticRegressionDensityRatioEstimator(seed=seed)
+        r_logreg.fit(X_test, X_train)
+        sample_weight = np.maximum(1e-6, r_logreg.ratio(X_train).numpy())
+        acc = metric(X_train, y_train, X_test, y_test,
+                     sample_weight=sample_weight, random_state=seed)
+        rows.append(dict(weight="logreg", acc=acc, seed=seed))
 
         # Logistic Regression (MLP)
         r_mlp = MLPDensityRatioEstimator(num_layers=1, num_units=8,
@@ -139,7 +150,7 @@ def main(name, summary_dir, seed):
         sample_weight = np.maximum(1e-6, r_mlp.ratio(X_train).numpy())
         acc = metric(X_train, y_train, X_test, y_test,
                      sample_weight=sample_weight, random_state=seed)
-        rows.append(dict(weight="logreg_deep", acc=acc, seed=seed))
+        rows.append(dict(weight="mlp", acc=acc, seed=seed))
 
         # Gaussian Processes
         gpdre = GaussianProcessDensityRatioEstimator(
@@ -160,7 +171,7 @@ def main(name, summary_dir, seed):
             r_prop = gpdre.ratio(X_train, convert_to_tensor_fn=prop)
             acc = metric(X_train, y_train, X_test, y_test,
                          sample_weight=r_prop.numpy(), random_state=seed)
-            rows.append(dict(weight=f"gp_{prop_name}", acc=acc, seed=seed))
+            rows.append(dict(weight=prop_name, acc=acc, seed=seed))
 
     data = pd.DataFrame(rows)
     data.to_csv(str(summary_path.joinpath(f"{name}.csv")))

@@ -26,12 +26,12 @@ def size(width, aspect=GOLDEN_RATIO):
     return (width_in, width_in / aspect)
 
 
-WIDTH = 8.0
+WIDTH = 397.48499
 OUTPUT_DIR = "figures/"
 
 
 def catplot(data, x="error", kind="strip", weight_order=WEIGHT_ORDER,
-            xlabel="test nmse", ax=None):
+            xlabel="test error rate", ax=None):
 
     if ax is None:
         ax.gca()
@@ -103,9 +103,9 @@ def main(name, result, context, width, aspect, extension, output_dir):
 
     data = pd.read_csv(result, index_col=0)
 
-    data = data.assign(error=1.0-data["acc"])
-    data.drop(columns=["dataset_seed", "acc"], inplace=True)
-    # data.drop(columns="dataset_seed", inplace=True)
+    # data = data.assign(error=1.0-data["acc"])
+    # data.drop(columns=["dataset_seed", "acc"], inplace=True)
+    data.drop(columns="dataset_seed", inplace=True)
     # data.replace({"name": DATASET_PRETTY_NAMES}, inplace=True)
 
     for kind in ["strip", "point", "bar"]:
