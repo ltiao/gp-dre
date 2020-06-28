@@ -23,13 +23,13 @@ GOLDEN_RATIO = 0.5 * (1 + np.sqrt(5))
 WIDTH = 397.48499
 OUTPUT_DIR = "logs/figures/"
 
-NUM_INIT_RANDOM = 32
+NUM_INIT_RANDOM = 16
 NUM_INDEX_POINTS = 64
-RHO = 0.15
-BANDWIDTH = 0.25
+PI = 0.15
+BANDWIDTH = 0.7
 
 TEST_SIZE = 0.2
-SEED = 42
+SEED = 8989
 
 
 def pt_to_in(x):
@@ -112,7 +112,7 @@ def main(name, width, aspect, extension, output_dir):
 
     ax.plot(log_gamma, y)
 
-    ax.set_xlabel(r'$\log{\gamma}$')
+    ax.set_xlabel(r'$\log_{10}{\gamma}$')
     ax.set_ylabel(r"$y$ (test mse)")
 
     for ext in extension:
@@ -129,7 +129,7 @@ def main(name, width, aspect, extension, output_dir):
     y_samples = test_metric(gamma_samples)
     # %%
 
-    y_threshold = np.quantile(y_samples, q=RHO)
+    y_threshold = np.quantile(y_samples, q=PI)
     mask_lesser = (y_samples <= y_threshold)
     mask_greater = ~mask_lesser
 
@@ -147,7 +147,7 @@ def main(name, width, aspect, extension, output_dir):
     ax.axhline(y_threshold, xmin=0, xmax=1.0,
                color='k', linewidth=1.0, linestyle='dashed')
 
-    ax.set_xlabel(r'$\log{\gamma}$')
+    ax.set_xlabel(r'$\log_{10}{\gamma}$')
     ax.set_ylabel(r"$y$ (test mse)")
 
     for ext in extension:
@@ -165,9 +165,9 @@ def main(name, width, aspect, extension, output_dir):
 
     ax.plot(y_samples_sorted, y_samples_quantile)
 
-    ax.vlines(y_threshold, ymin=0, ymax=RHO,
+    ax.vlines(y_threshold, ymin=0, ymax=PI,
               colors='k', linestyles='dashed', linewidth=1.0)
-    ax.hlines(RHO, xmin=y_samples_sorted[0], xmax=y_threshold,
+    ax.hlines(PI, xmin=y_samples_sorted[0], xmax=y_threshold,
               colors='k', linestyles='dashed', linewidth=1.0)
 
     ax.set_xlabel(r'$y$')
@@ -187,7 +187,7 @@ def main(name, width, aspect, extension, output_dir):
     sns.distplot(log_gamma_samples_greater, hist=False, rug=True,
                  label=r'$g(x)$', kde_kws=dict(shade=True, bw=BANDWIDTH), ax=ax)
 
-    ax.set_xlabel(r'$\log{\gamma}$')
+    ax.set_xlabel(r'$\log_{10}{\gamma}$')
     ax.set_ylabel("density")
 
     ax.legend()
@@ -214,7 +214,7 @@ def main(name, width, aspect, extension, output_dir):
     sns.rugplot(log_gamma_samples_lesser, c='tab:blue', ax=ax)
     sns.rugplot(log_gamma_samples_greater, c='tab:orange', ax=ax)
 
-    ax.set_xlabel(r'$\log{\gamma}$')
+    ax.set_xlabel(r'$\log_{10}{\gamma}$')
     ax.set_ylabel("density")
 
     ax.legend()
@@ -244,7 +244,7 @@ def main(name, width, aspect, extension, output_dir):
     sns.rugplot(log_gamma_samples_lesser, c='tab:blue', ax=ax)
     sns.rugplot(log_gamma_samples_greater, c='tab:orange', ax=ax)
 
-    ax.set_xlabel(r'$\log{\gamma}$')
+    ax.set_xlabel(r'$\log_{10}{\gamma}$')
     ax.set_ylabel("density")
 
     ax.legend()
@@ -258,15 +258,17 @@ def main(name, width, aspect, extension, output_dir):
 
     fig, ax = plt.subplots()
 
-    ax.plot(log_gamma, np.exp(log_density_lesser), label=r'$\ell(x)$')
-    ax.plot(log_gamma, np.exp(log_density_greater), label=r'$g(x)$')
+    ax.plot(log_gamma, np.exp(log_density_lesser),
+            linestyle="dashed", label=r'$\ell(x)$')
+    ax.plot(log_gamma, np.exp(log_density_greater),
+            linestyle="dashed", label=r'$g(x)$')
     ax.fill(log_gamma, np.exp(log_density_lesser - log_density_greater),
             alpha=0.2, label=r'$\ell(x) / g(x)$')
 
     sns.rugplot(log_gamma_samples_lesser, c='tab:blue', ax=ax)
     sns.rugplot(log_gamma_samples_greater, c='tab:orange', ax=ax)
 
-    ax.set_xlabel(r'$\log{\gamma}$')
+    ax.set_xlabel(r'$\log_{10}{\gamma}$')
     ax.set_ylabel(r"ratio ($\propto$ EI)")
 
     ax.legend()
@@ -286,23 +288,19 @@ def main(name, width, aspect, extension, output_dir):
     # kliep.fit(log_gamma_samples_lesser.reshape(-1, 1),
     #           log_gamma_samples_greater.reshape(-1, 1))
 
-    rulsif = RuLSIFDensityRatioEstimator(alpha=RHO)
+    rulsif = RuLSIFDensityRatioEstimator(alpha=PI)
     rulsif.fit(log_gamma_samples_lesser, log_gamma_samples_greater)
     # %%
 
     fig, ax = plt.subplots()
 
-    ax.plot(log_gamma, np.exp(log_density_lesser), label=r'$\ell(x)$')
-    ax.plot(log_gamma, np.exp(log_density_greater), label=r'$g(x)$')
-    # ax.fill(log_gamma, np.exp(log_density_lesser - log_density_greater),
-    #         alpha=0.2, label=r'$\ell(x) / g(x)$')
     ax.fill(log_gamma, rulsif.ratio(log_gamma),
             alpha=0.2, label='RuLSIF')
 
     sns.rugplot(log_gamma_samples_lesser, c='tab:blue', ax=ax)
     sns.rugplot(log_gamma_samples_greater, c='tab:orange', ax=ax)
 
-    ax.set_xlabel(r'$\log{\gamma}$')
+    ax.set_xlabel(r'$\log_{10}{\gamma}$')
     ax.set_ylabel(r"ratio ($\propto$ EI)")
 
     ax.legend()
@@ -319,18 +317,25 @@ def main(name, width, aspect, extension, output_dir):
 
     divider = make_axes_locatable(ax_main)
 
-    ax_main.scatter(log_gamma_samples_lesser, y_samples[mask_lesser])
-    ax_main.scatter(log_gamma_samples_greater, y_samples[mask_greater])
+    ax_main.scatter(log_gamma_samples_lesser, y_samples[mask_lesser],
+                    alpha=0.8, label=r'$y < y^{\star}$')
+    ax_main.scatter(log_gamma_samples_greater, y_samples[mask_greater],
+                    alpha=0.8, label=r'$y \geq y^{\star}$')
     ax_main.axhline(y_threshold, xmin=0, xmax=1.0,
-                    color='k', linewidth=1.0, linestyle='dashed')
+                    color='gray', linewidth=1.0, linestyle='dashed')
+    ax_main.annotate(rf"$y^{{\star}}={{{y_threshold:.2f}}}$", xy=(log_gamma[0], y_threshold),
+                     xycoords='data', xytext=(-5.0, -8.0), textcoords='offset points',
+                     fontsize="x-small", arrowprops=dict(facecolor='black', arrowstyle='-'))
 
-    ax_main.set_xlabel(r'$\log{\gamma}$')
+    ax_main.set_xlabel(r'$\log_{10}{\gamma}$')
     ax_main.set_ylabel(r"$y$ (test mse)")
+
+    ax_main.legend()
 
     ax_x = divider.append_axes("top", size=0.9, pad=0.1, sharex=ax_main)
 
-    ax_x.plot(log_gamma, np.exp(log_density_lesser), label=r'$\ell(x)$')
-    ax_x.plot(log_gamma, np.exp(log_density_greater), label=r'$g(x)$')
+    ax_x.plot(log_gamma, np.exp(log_density_lesser), label=r'$\ell(\gamma)$')
+    ax_x.plot(log_gamma, np.exp(log_density_greater), label=r'$g(\gamma)$')
 
     sns.rugplot(log_gamma_samples_lesser, c='tab:blue', ax=ax_x)
     sns.rugplot(log_gamma_samples_greater, c='tab:orange', ax=ax_x)
@@ -338,13 +343,18 @@ def main(name, width, aspect, extension, output_dir):
     ax_x.set_ylabel("density")
     ax_x.xaxis.set_tick_params(labelbottom=False)
 
+    ax_x.legend()
+
     ax_y = divider.append_axes("right", size=0.9, pad=0.1, sharey=ax_main)
 
     ax_y.plot(y_samples_quantile, y_samples_sorted)
-    ax_y.hlines(y_threshold, xmin=0, xmax=RHO,
-                colors='k', linestyles='dashed', linewidth=1.0)
-    ax_y.vlines(RHO, ymin=y_samples_sorted[0], ymax=y_threshold,
-                colors='k', linestyles='dashed', linewidth=1.0)
+    ax_y.hlines(y_threshold, xmin=0, xmax=PI,
+                colors='gray', linestyles='dashed', linewidth=1.0)
+    ax_y.vlines(PI, ymin=y_samples_sorted[0], ymax=y_threshold,
+                colors='gray', linestyles='dashed', linewidth=1.0)
+    ax_y.annotate(rf"$\pi={{{PI:.2f}}}$", xy=(PI, y_samples_sorted[0]),
+                  xycoords='data', xytext=(5.0, 0.0), textcoords='offset points',
+                  fontsize="x-small", arrowprops=dict(facecolor='black', arrowstyle='-'))
 
     ax_y.set_xlabel(r'$\Phi(y)$ (ecdf)')
     ax_y.yaxis.set_tick_params(labelleft=False)
