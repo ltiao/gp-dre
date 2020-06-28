@@ -110,9 +110,10 @@ def main(name, width, aspect, extension, output_dir):
 
     fig, ax = plt.subplots()
 
-    ax.plot(log_gamma, y)
+    ax.plot(gamma, y)
 
-    ax.set_xlabel(r'$\log_{10}{\gamma}$')
+    ax.set_xscale("log")
+    ax.set_xlabel(r'$\gamma$')
     ax.set_ylabel(r"$y$ (test mse)")
 
     for ext in extension:
@@ -133,21 +134,28 @@ def main(name, width, aspect, extension, output_dir):
     mask_lesser = (y_samples <= y_threshold)
     mask_greater = ~mask_lesser
 
+    gamma_samples_lesser = gamma_samples[mask_lesser]
+    gamma_samples_greater = gamma_samples[mask_greater]
+
     log_gamma_samples_lesser = log_gamma_samples[mask_lesser]
     log_gamma_samples_greater = log_gamma_samples[mask_greater]
+
+    y_samples_lesser = y_samples[mask_lesser]
+    y_samples_greater = y_samples[mask_greater]
     # %%
 
     fig, ax = plt.subplots()
 
     # ax.scatter(log_gamma_samples, y_samples, c=mask_lesser,
     #            alpha=0.7, cmap="coolwarm")
-    ax.scatter(log_gamma_samples_lesser, y_samples[mask_lesser], alpha=0.8)
-    ax.scatter(log_gamma_samples_greater, y_samples[mask_greater], alpha=0.8)
+    ax.scatter(gamma_samples_lesser, y_samples_lesser, alpha=0.8)
+    ax.scatter(gamma_samples_greater, y_samples_greater, alpha=0.8)
 
     ax.axhline(y_threshold, xmin=0, xmax=1.0,
                color='k', linewidth=1.0, linestyle='dashed')
 
-    ax.set_xlabel(r'$\log_{10}{\gamma}$')
+    ax.set_xscale("log")
+    ax.set_xlabel(r'$\gamma$')
     ax.set_ylabel(r"$y$ (test mse)")
 
     for ext in extension:
@@ -208,13 +216,14 @@ def main(name, width, aspect, extension, output_dir):
 
     fig, ax = plt.subplots()
 
-    ax.plot(log_gamma, kde_lesser.evaluate(log_gamma), label=r'$\ell(x)$')
-    ax.plot(log_gamma, kde_greater.evaluate(log_gamma), label=r'$g(x)$')
+    ax.plot(gamma, kde_lesser.evaluate(log_gamma), label=r'$\ell(x)$')
+    ax.plot(gamma, kde_greater.evaluate(log_gamma), label=r'$g(x)$')
 
-    sns.rugplot(log_gamma_samples_lesser, c='tab:blue', ax=ax)
-    sns.rugplot(log_gamma_samples_greater, c='tab:orange', ax=ax)
+    sns.rugplot(gamma_samples_lesser, c='tab:blue', ax=ax)
+    sns.rugplot(gamma_samples_greater, c='tab:orange', ax=ax)
 
-    ax.set_xlabel(r'$\log_{10}{\gamma}$')
+    ax.set_xscale("log")
+    ax.set_xlabel(r'$\gamma$')
     ax.set_ylabel("density")
 
     ax.legend()
@@ -237,14 +246,15 @@ def main(name, width, aspect, extension, output_dir):
 
     fig, ax = plt.subplots()
 
-    ax.plot(log_gamma, np.exp(log_density_lesser), label=r'$\ell(x)$')
-    ax.plot(log_gamma, np.exp(log_density_greater), label=r'$g(x)$')
+    ax.plot(gamma, np.exp(log_density_lesser), label=r'$\ell(x)$')
+    ax.plot(gamma, np.exp(log_density_greater), label=r'$g(x)$')
     # ax.fill(log_gamma, np.exp(log_density_lesser - log_density_greater), label=r'$\ell(x) / g(x)$')
 
-    sns.rugplot(log_gamma_samples_lesser, c='tab:blue', ax=ax)
-    sns.rugplot(log_gamma_samples_greater, c='tab:orange', ax=ax)
+    sns.rugplot(gamma_samples_lesser, c='tab:blue', ax=ax)
+    sns.rugplot(gamma_samples_greater, c='tab:orange', ax=ax)
 
-    ax.set_xlabel(r'$\log_{10}{\gamma}$')
+    ax.set_xscale("log")
+    ax.set_xlabel(r'$\gamma$')
     ax.set_ylabel("density")
 
     ax.legend()
@@ -258,18 +268,19 @@ def main(name, width, aspect, extension, output_dir):
 
     fig, ax = plt.subplots()
 
-    ax.plot(log_gamma, np.exp(log_density_lesser),
+    ax.plot(gamma, np.exp(log_density_lesser),
             linestyle="dashed", label=r'$\ell(x)$')
-    ax.plot(log_gamma, np.exp(log_density_greater),
+    ax.plot(gamma, np.exp(log_density_greater),
             linestyle="dashed", label=r'$g(x)$')
-    ax.fill(log_gamma, np.exp(log_density_lesser - log_density_greater),
+    ax.fill(gamma, np.exp(log_density_lesser - log_density_greater),
             alpha=0.2, label=r'$\ell(x) / g(x)$')
 
-    sns.rugplot(log_gamma_samples_lesser, c='tab:blue', ax=ax)
-    sns.rugplot(log_gamma_samples_greater, c='tab:orange', ax=ax)
+    sns.rugplot(gamma_samples_lesser, c='tab:blue', ax=ax)
+    sns.rugplot(gamma_samples_greater, c='tab:orange', ax=ax)
 
-    ax.set_xlabel(r'$\log_{10}{\gamma}$')
-    ax.set_ylabel(r"ratio ($\propto$ EI)")
+    ax.set_xscale("log")
+    ax.set_xlabel(r'$\gamma$')
+    ax.set_ylabel(r"$\alpha(\gamma)$")
 
     ax.legend()
 
@@ -294,14 +305,15 @@ def main(name, width, aspect, extension, output_dir):
 
     fig, ax = plt.subplots()
 
-    ax.fill(log_gamma, rulsif.ratio(log_gamma),
+    ax.fill(gamma, rulsif.ratio(log_gamma),
             alpha=0.2, label='RuLSIF')
 
-    sns.rugplot(log_gamma_samples_lesser, c='tab:blue', ax=ax)
-    sns.rugplot(log_gamma_samples_greater, c='tab:orange', ax=ax)
+    sns.rugplot(gamma_samples_lesser, c='tab:blue', ax=ax)
+    sns.rugplot(gamma_samples_greater, c='tab:orange', ax=ax)
 
-    ax.set_xlabel(r'$\log_{10}{\gamma}$')
-    ax.set_ylabel(r"ratio ($\propto$ EI)")
+    ax.set_xscale("log")
+    ax.set_xlabel(r'$\gamma$')
+    ax.set_ylabel(r"$\alpha(\gamma)$")
 
     ax.legend()
 
@@ -317,28 +329,29 @@ def main(name, width, aspect, extension, output_dir):
 
     divider = make_axes_locatable(ax_main)
 
-    ax_main.scatter(log_gamma_samples_lesser, y_samples[mask_lesser],
+    ax_main.scatter(gamma_samples_lesser, y_samples[mask_lesser],
                     alpha=0.8, label=r'$y < y^{\star}$')
-    ax_main.scatter(log_gamma_samples_greater, y_samples[mask_greater],
+    ax_main.scatter(gamma_samples_greater, y_samples[mask_greater],
                     alpha=0.8, label=r'$y \geq y^{\star}$')
     ax_main.axhline(y_threshold, xmin=0, xmax=1.0,
                     color='gray', linewidth=1.0, linestyle='dashed')
-    ax_main.annotate(rf"$y^{{\star}}={{{y_threshold:.2f}}}$", xy=(log_gamma[0], y_threshold),
+    ax_main.annotate(rf"$y^{{\star}}={{{y_threshold:.2f}}}$", xy=(gamma[0], y_threshold),
                      xycoords='data', xytext=(-5.0, -8.0), textcoords='offset points',
                      fontsize="x-small", arrowprops=dict(facecolor='black', arrowstyle='-'))
 
-    ax_main.set_xlabel(r'$\log_{10}{\gamma}$')
-    ax_main.set_ylabel(r"$y$ (test mse)")
+    ax_main.set_xscale("log")
+    ax_main.set_xlabel(r'$\gamma$')
+    ax_main.set_ylabel(r"$y$ (val mse)")
 
     ax_main.legend()
 
     ax_x = divider.append_axes("top", size=0.9, pad=0.1, sharex=ax_main)
 
-    ax_x.plot(log_gamma, np.exp(log_density_lesser), label=r'$\ell(\gamma)$')
-    ax_x.plot(log_gamma, np.exp(log_density_greater), label=r'$g(\gamma)$')
+    ax_x.plot(gamma, np.exp(log_density_lesser), label=r'$\ell(\gamma)$')
+    ax_x.plot(gamma, np.exp(log_density_greater), label=r'$g(\gamma)$')
 
-    sns.rugplot(log_gamma_samples_lesser, c='tab:blue', ax=ax_x)
-    sns.rugplot(log_gamma_samples_greater, c='tab:orange', ax=ax_x)
+    sns.rugplot(gamma_samples_lesser, c='tab:blue', ax=ax_x)
+    sns.rugplot(gamma_samples_greater, c='tab:orange', ax=ax_x)
 
     ax_x.set_ylabel("density")
     ax_x.xaxis.set_tick_params(labelbottom=False)
