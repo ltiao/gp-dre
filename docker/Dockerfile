@@ -1,4 +1,4 @@
-FROM tensorflow/tensorflow:2.1.0-gpu-py3-jupyter
+FROM tensorflow/tensorflow:2.2.0-gpu-jupyter
 MAINTAINER Louis Tiao <louistiao@gmail.com>
 
 ENV LC_ALL C.UTF-8
@@ -44,9 +44,6 @@ RUN bazel build --copt=-O3 --copt=-march=native :pip_pkg && \
 # Install GPFlow (taking care of its dependencies ourselves)
 RUN python -m pip install --no-cache-dir multipledispatch tabulate dataclasses && \
     python -m pip install --no-cache-dir --no-deps gpflow==2.0.1
-
-# For KMM baseline
-RUN python -m pip install --no-cache-dir cvxopt==1.2.5
 
 RUN mkdir -p /usr/src/app
 
