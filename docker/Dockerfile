@@ -1,4 +1,4 @@
-FROM tensorflow/tensorflow:2.2.0-gpu-jupyter
+FROM tensorflow/tensorflow:2.1.0-gpu-py3-jupyter
 MAINTAINER Louis Tiao <louistiao@gmail.com>
 
 ENV LC_ALL C.UTF-8

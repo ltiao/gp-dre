@@ -87,12 +87,14 @@ class LabelShift(DensityRatioBase):
         return target_scaler.fit_transform(y.reshape(-1, 1)).squeeze(axis=-1)
 
 
-def get_cortes_splits(metric_callback, train_data, test_data, num_splits=10,
-                      max_iter=100, num_seeds=10, tol=0.05, compare_pred=gt,
-                      **kwargs):
+def get_cortes_splits(metric_callback, train_data, test_data=None,
+                      num_splits=10, max_iter=100, num_seeds=10, tol=0.05,
+                      compare_pred=gt, **kwargs):
 
     X, y = train_data
-    X_test, y_test = test_data
+
+    if test_data is not None:
+        X_test, y_test = test_data
 
     input_dim = X.shape[-1]
 
@@ -116,6 +118,9 @@ def get_cortes_splits(metric_callback, train_data, test_data, num_splits=10,
 
             # TODO(LT): support option to evaluate on (X_val, y_val)
             (X_train, y_train), (X_val, y_val) = r.train_test_split(X, y, seed=seed)
+
+            if test_data is None:
+                X_test, y_test = X_val, y_val
 
             metrics_uniform_seeds.append(metric_callback(X_train, y_train, X_test, y_test))
             metrics_exact_seeds.append(metric_callback(X_train, y_train, X_test, y_test,
