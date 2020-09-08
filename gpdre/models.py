@@ -9,7 +9,7 @@ class DenseSequential(Sequential):
 
         super(DenseSequential, self).__init__()
 
-        for l in range(num_layers):
+        for _ in range(num_layers):
             self.add(Dense(num_units, **layer_kws))
 
         self.add(Dense(output_dim, **final_layer_kws))

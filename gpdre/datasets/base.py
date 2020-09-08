@@ -31,6 +31,26 @@ class CovariateShiftSplit(BaseShuffleSplit):
             yield ind_train, ind_test
 
 
+def make_regression_dataset(latent_fn):
+
+    def load_data(num_samples, num_features, noise_variance,
+                  x_min=0., x_max=1., squeeze=True, random_state=None):
+
+        rng = check_random_state(random_state)
+
+        eps = noise_variance * rng.randn(num_samples, num_features)
+
+        X = x_min + (x_max - x_min) * rng.rand(num_samples, num_features)
+        Y = latent_fn(X) + eps
+
+        if squeeze:
+            Y = np.squeeze(Y)
+
+        return X, Y
+
+    return load_data
+
+
 def make_classification_dataset(X_top, X_bot, shuffle=False, dtype="float64",
                                 random_state=None):
 

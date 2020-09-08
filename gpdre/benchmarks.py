@@ -1,7 +1,7 @@
 import tensorflow_probability as tfp
 import numpy as np
 
-from operator import gt
+from operator import lt, truediv
 
 from sklearn.preprocessing import StandardScaler
 from sklearn.utils import check_random_state
@@ -9,6 +9,7 @@ from sklearn.utils import check_random_state
 from .base import DensityRatioBase, DensityRatioMarginals
 from .math import logit
 
+from itertools import count
 from tqdm import trange
 
 # shortcuts
@@ -88,8 +89,8 @@ class LabelShift(DensityRatioBase):
 
 
 def get_cortes_splits(metric_callback, train_data, test_data=None,
-                      num_splits=10, max_iter=100, num_seeds=10, tol=0.05,
-                      compare_pred=gt, **kwargs):
+                      num_splits=10, max_iter=None, num_seeds=10, pred_fn=None,
+                      write=print, **kwargs):
 
     X, y = train_data
 
@@ -103,10 +104,16 @@ def get_cortes_splits(metric_callback, train_data, test_data=None,
     metrics_uniform = []
     metrics_exact = []
 
-    for split in trange(max_iter):
+    if max_iter is None:
+        split_gen = count()
+    else:
+        assert max_iter > 0, "`max_iter` must be positive integer"
+        split_gen = trange(max_iter)
+
+    for split in split_gen:
 
         if len(splits) >= num_splits:
-
+            write(f"Succesfully found {num_splits} splits!")
             break
 
         r = CortesDensityRatio(input_dim=input_dim, seed=split, **kwargs)
@@ -126,12 +133,7 @@ def get_cortes_splits(metric_callback, train_data, test_data=None,
             metrics_exact_seeds.append(metric_callback(X_train, y_train, X_test, y_test,
                                                        sample_weight=np.maximum(1e-6, r.ratio(X_train))))
 
-        mean_uniform = np.mean(metrics_uniform_seeds)
-        mean_exact = np.mean(metrics_exact_seeds)
-
-        # TODO: support different filter function for classification accuracy
-        # (where higher is better)
-        if compare_pred(mean_uniform - mean_exact, tol):
+        if pred_fn(metrics_uniform_seeds, metrics_exact_seeds):
 
             splits.append(split)
 
@@ -140,12 +142,10 @@ def get_cortes_splits(metric_callback, train_data, test_data=None,
 
             rs.append(r)
 
-    print("Found {}/{} splits with difference "
-          "greater than {} after {}/{} iterations."
-          .format(len(splits), num_splits, tol, split + 1, max_iter))
+    write(f"Found {len(splits)}/{num_splits} splits "
+          f"after {split + 1}/{max_iter} iterations!")
 
     if len(splits) < num_splits:
-        print("Try increasing `max_iter` or "
-              "decreasing `num_splits` and/or `tol`.")
+        write("Try increasing `max_iter` or decreasing `num_splits` and/or `tol`.")
 
     return splits, rs, metrics_uniform, metrics_exact

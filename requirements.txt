@@ -1,4 +1,4 @@
-# tensorflow-probability==0.8.0
+tensorflow-probability==0.11.0
 tqdm>=4.41.0
 # numpy>=1.17.3
 scipy>=1.4.1
@@ -13,3 +13,5 @@ densratio
 
 # For KMM baseline
 cvxopt==1.2.5
+
+gpyopt

@@ -27,7 +27,7 @@ def continuous_pairplot(features, target, columns=None, n_bins=4,
     """
     Pairplot with discretized continuous hue values.
     """
-    scaler = KBinsDiscretizer(n_bins=4, encode="ordinal", strategy="quantile")
+    scaler = KBinsDiscretizer(n_bins=n_bins, encode="ordinal", strategy="quantile")
     quartile = 1 + scaler.fit_transform(target.reshape(-1, 1)).squeeze()
 
     data = pd.DataFrame(features, columns=columns).assign(quartile=quartile)
